@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>RvsUpload.Core</AssemblyName>
+    <RootNamespace>RvsUpload</RootNamespace>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Тестам нужны внутренние части пробника net.tcp: кодирование длины
+         и разбор отказа. Делать их public только ради тестов не хочется —
+         это подробности протокола, а не наш интерфейс. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>RvsUpload.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+</Project>

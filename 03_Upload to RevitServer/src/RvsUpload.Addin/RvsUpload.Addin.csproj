@@ -1,0 +1,69 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Сборка под конкретную версию Revit:
+      dotnet build -p:RevitVersion=2024
+      dotnet build -p:RevitVersion=2026
+
+    Revit 2025+ работает на .NET 8, более ранние — на .NET Framework 4.8.
+  -->
+  <PropertyGroup>
+    <RevitVersion Condition="'$(RevitVersion)' == ''">2024</RevitVersion>
+    <TargetFramework Condition="$(RevitVersion) &gt;= 2025">net8.0-windows</TargetFramework>
+    <TargetFramework Condition="$(RevitVersion) &lt; 2025">net48</TargetFramework>
+
+    <AssemblyName>RvsUpload.Addin</AssemblyName>
+    <RootNamespace>RvsUpload.Addin</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <PlatformTarget>x64</PlatformTarget>
+    <DefineConstants>$(DefineConstants);REVIT$(RevitVersion)</DefineConstants>
+    <RevitDir Condition="'$(RevitDir)' == ''">C:\Program Files\Autodesk\Revit $(RevitVersion)\</RevitDir>
+
+    <!-- Аддин грузится внутрь Revit: копировать зависимости фреймворка не нужно -->
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+  </PropertyGroup>
+
+  <Target Name="CheckRevitSdk" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(RevitDir)RevitAPI.dll')"
+           Text="RevitAPI.dll не найден в '$(RevitDir)'. Установите Revit $(RevitVersion) или задайте путь: dotnet build -p:RevitVersion=$(RevitVersion) -p:RevitDir=D:\Revit\$(RevitVersion)\" />
+  </Target>
+
+  <ItemGroup>
+    <Reference Include="RevitAPI">
+      <HintPath>$(RevitDir)RevitAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>$(RevitDir)RevitAPIUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!--
+    Никаких внешних пакетов: у Revit в папке установки лежит собственная
+    Newtonsoft.Json.dll, и вторая копия другой версии в том же процессе
+    приводит к TypeLoadException при загрузке аддина. JSON берём из BCL
+    (System.Runtime.Serialization для net48; для net8.0-windows он в составе
+    shared framework и отдельная ссылка не нужна).
+  -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <Reference Include="System.Runtime.Serialization" />
+  </ItemGroup>
+
+  <!--
+    Контракт задания и JSON-хелпер линкуются исходником, а не через
+    ProjectReference: аддин должен разворачиваться одним файлом
+    RvsUpload.Addin.dll внутри папки Revit Addins.
+  -->
+  <ItemGroup>
+    <Compile Include="..\RvsUpload.Core\TaskFile.cs" Link="TaskFile.cs" />
+    <Compile Include="..\RvsUpload.Core\Json.cs" Link="Json.cs" />
+    <Compile Include="..\RvsUpload.Core\AddinContract.cs" Link="AddinContract.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="RvsUpload.addin" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

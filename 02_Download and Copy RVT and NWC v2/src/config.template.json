@@ -1,0 +1,37 @@
+{
+  "RevitServerName": "",
+  "RevitModelsPath": [],
+  "LocalRVTFolder": "",
+  "LocalNWCFolder": "",
+  "ModelsRVTFromPartners": [],
+  "ModelsNWCFromPartners": [],
+  "StopUploadModelsToPartners": [],
+  "RevitServerToolPath": "C:\\Program Files\\Autodesk\\Revit 2021\\RevitServerToolCommand\\RevitServerTool.exe",
+  "NavisworksToolPath": "C:\\Program Files\\Autodesk\\Navisworks Manage 2021\\FiletoolsTaskRunner.exe",
+  "FileServerRevitFolder": "",
+  "FileServerNWCFolder": "",
+  "PartnersRevitFolder": "",
+  "PartnersNWCFolder": "",
+  "SuffixRVTPartners": "_shared",
+  "SuffixNWCPartners": "",
+  "Vpn": {
+    "Enabled": false,
+    "Type": "SoftEther",
+    "VpnCmdPath": "C:\\Program Files\\SoftEther VPN Client\\vpncmd.exe",
+    "AccountName": "",
+    "RasEntryName": "",
+    "PasswordEnvVar": "",
+    "ConnectTimeoutSeconds": 90,
+    "TestHost": "",
+    "TestPort": 445,
+    "DisconnectAfterRun": true
+  },
+  "SelectedScripts": [
+    "01_Step1_DownloadFromRevitServer.ps1",
+    "02_Step2_ConvertToNWC.ps1",
+    "03_Step3_UploadToPartnersNWC.ps1",
+    "04_Step4_UploadToPartnersRVT.ps1",
+    "05_Step5_UploadToFileServerNWC.ps1",
+    "06_Step6_SyncFromPartnersNWC.ps1"
+  ]
+}

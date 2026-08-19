@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Копировать в:
+    %ProgramData%\Autodesk\Revit\Addins\<год>\
+  (или %APPDATA%\Autodesk\Revit\Addins\<год>\ для установки под пользователя)
+
+  ВАЖНО: AddInId должен совпадать с JournalBuilder.AddInId в CLI-проекте,
+  иначе Jrn.RibbonEvent не найдёт команду и Revit просто молча закроется.
+-->
+<RevitAddIns>
+  <!--
+    Type="Application", а не "Command".
+
+    Вызов команды из journal через
+        Jrn.RibbonEvent "Execute external command:<AddInId>:<Class>"
+    на живом Revit 2021 молча не срабатывает: Revit адресует внешние команды
+    идентификатором КНОПКИ НА ЛЕНТЕ (CustomCtrl_%...), а не AddInId. Проверено
+    по 52 реальным вызовам в журналах Revit 2020/2021/2023 — формы с GUID нет
+    ни в одном. Подробности в CODE_REVIEW.md, B-20.
+
+    Внешнее приложение Revit запускает сам при старте, лента при этом не нужна
+    вовсе — и не нужна её локализованная разметка, которая ломалась бы при
+    смене языка Revit.
+
+    Кнопки аддин не создаёт намеренно: он лежит в общей папке и грузится в
+    каждой сессии Revit, включая обычные пользовательские. Без переменной
+    окружения RVSUPLOAD_BATCH он не делает ничего.
+  -->
+  <AddIn Type="Application">
+    <Name>RvsUpload</Name>
+    <Description>Headless-загрузка модели на Revit Server из командной строки.</Description>
+    <!--
+      Путь без подпапки. Подпапка называлась бы RvsUpload.Addin, а манифест —
+      RvsUpload.addin: в Windows имена различаются только регистром, поэтому
+      папка и файл конфликтуют и манифест невозможно положить рядом.
+      Отдельная папка и не нужна: аддин состоит из единственной сборки.
+    -->
+    <Assembly>RvsUpload.Addin.dll</Assembly>
+    <FullClassName>RvsUpload.Addin.UploadApplication</FullClassName>
+    <ClientId>6E4A8F31-2C7D-4B9E-8A15-3F0D9C2E7B44</ClientId>
+    <AddInId>6E4A8F31-2C7D-4B9E-8A15-3F0D9C2E7B44</AddInId>
+    <!-- Разработчик, а не организация-получатель: манифест уходит в поставку
+         как есть и подстановке при сборке не подлежит. -->
+    <VendorId>RVSU</VendorId>
+    <VendorDescription>ПАНЧИК.РФ — bimzen.ru</VendorDescription>
+    <!--
+      VisibilityMode намеренно отсутствует. Было NotVisibleWhenNoActiveDocument —
+      а команда вызывается через Jrn.RibbonEvent именно тогда, когда открытого
+      документа нет: исходники открываются на DB-уровне и в UI не попадают,
+      активного документа не бывает никогда. С этим элементом команда считается
+      недоступной, и Revit молча стартует, ничего не делает и закрывается.
+    -->
+  </AddIn>
+</RevitAddIns>

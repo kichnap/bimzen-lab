@@ -1,0 +1,17 @@
+﻿<Project>
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors>CS8073;CS0162;CS0164</WarningsAsErrors>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+    <!-- Разработчик прописан в свойствах сборки жёстко и ключом сборки
+         не меняется: организаций, для которых собирают поставку, много,
+         а автор один. Название организации живёт в текстовых файлах
+         поставки и подставляется при упаковке — см. AGENTS.md. -->
+    <Company>ПАНЧИК.РФ</Company>
+    <Authors>ПАНЧИК.РФ</Authors>
+    <Copyright>© 2026 ПАНЧИК.РФ</Copyright>
+    <Product>RvsUpload</Product>
+    <Version>0.15.2</Version>
+  </PropertyGroup>
+</Project>

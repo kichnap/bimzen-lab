@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>RvsUpload</AssemblyName>
+    <RootNamespace>RvsUpload</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+  <!--
+    JSON — через DataContractJsonSerializer из BCL (см. Core\Json.cs).
+    Внешних пакетов у CLI нет вовсе: рядом с RvsUpload.exe лежит только
+    RvsUpload.Core.dll.
+  -->
+  <ItemGroup>
+    <Reference Include="System.Runtime.Serialization" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RvsUpload.Core\RvsUpload.Core.csproj" />
+  </ItemGroup>
+
+</Project>

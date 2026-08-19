@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Настройки RvsUpload — {{ORG}}</title>
+<style>
+/* ============================================================================
+   {{ORG}}. {{UNIT}}
+   Редактор settings.json для утилиты RvsUpload
+   Разработчик: {{DEV}}
+   Версия 2.0 (16.08.2026)
+
+   Название организации подставляется при сборке поставки, имя
+   разработчика — нет: организаций много, разработчик один (AGENTS.md).
+
+   Оформление — то же, что у пайплайна DownloadAndCopyRVTNWC: один отдел,
+   один язык. Разница по существу: там цвет кодировал два направления
+   потока файлов, здесь направление одно — вверх, на Revit Server. Поэтому
+   акцент один, а красный и янтарный оставлены тому, что мешает заливке.
+
+   Страница автономна: ни одного внешнего ресурса, шрифты системные.
+   Работает по двойному щелчку из любой папки, без интернета и веб-сервера.
+   ========================================================================= */
+
+:root {
+  --ink:        #1C2126;
+  --ink-2:      #4A545E;
+  --ink-3:      #79848F;
+  --planshet:   #E4E7EA;
+  --sheet:      #FFFFFF;
+  --line:       #C9D0D6;
+  --line-soft:  #E3E7EA;
+
+  --up:         #0B6E7F;  /* единственное направление: от нас на сервер */
+  --up-soft:    #E4F1F3;
+  --stop:       #B02A3F;
+  --stop-soft:  #FBEAEC;
+  --warn:       #8A6A00;
+  --warn-soft:  #FBF3DC;
+  --ok:         #1F6B4A;
+
+  --font-display: "Bahnschrift SemiCondensed", "Bahnschrift", "DIN Condensed", "Segoe UI Semibold", "Segoe UI", sans-serif;
+  --font-ui: "Segoe UI", system-ui, sans-serif;
+  --font-mono: Consolas, "Cascadia Mono", "Courier New", monospace;
+
+  --radius: 3px;
+  --bar-height: 60px;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--bar-height) + 20px); }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+body {
+  margin: 0;
+  background: var(--planshet);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* --- Шапка ---------------------------------------------------------------- */
+
+.bar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 20px;
+  min-height: var(--bar-height);
+  padding: 8px 24px;
+  background: var(--ink);
+  color: #F2F4F6;
+  flex-wrap: wrap;
+}
+.bar__mark { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.bar__name {
+  font-family: var(--font-display);
+  font-size: 20px; letter-spacing: 0.08em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.bar__sub { font-size: 12px; color: #98A3AC; white-space: nowrap; }
+.bar__file {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 12.5px; color: #C6CED4;
+  min-width: 0;
+}
+.bar__dot { width: 7px; height: 7px; border-radius: 50%; background: #6C7883; flex: none; }
+.bar__file[data-state="loaded"] .bar__dot { background: #4FB286; }
+.bar__file[data-state="dirty"]  .bar__dot { background: #E0B33C; }
+.bar__file[data-state="dirty"]  { color: #F0D48A; }
+.bar__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.btn {
+  font-family: var(--font-ui); font-size: 14px;
+  padding: 9px 16px;
+  border: 1px solid transparent; border-radius: var(--radius);
+  background: #2E363E; color: #E7EBEE;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.btn:hover { background: #3C4650; }
+.btn--primary { background: #F2F4F6; color: var(--ink); font-weight: 600; }
+.btn--primary:hover { background: #FFFFFF; }
+.btn--ghost { background: transparent; border-color: #454E57; }
+.btn--ghost:hover { background: #2E363E; }
+
+/* --- Полотно -------------------------------------------------------------- */
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 28px 24px 96px; }
+
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 10px;
+}
+
+.lead { max-width: 64ch; margin: 0 0 24px; color: var(--ink-2); font-size: 15px; }
+
+/* --- Путь модели ---------------------------------------------------------- */
+/* Модель проходит шесть ворот, и порядок здесь не украшение: на этих
+   рубежах она отбраковывается, и в отчёте ошибка привязана к рубежу. */
+
+.route {
+  position: relative;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  margin-bottom: 14px;
+  background-image:
+    linear-gradient(var(--line-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+  background-size: 24px 24px, 24px 24px;
+}
+
+.route__ends {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px; align-items: stretch;
+  margin-bottom: 4px;
+}
+.end {
+  background: var(--sheet);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  min-width: 0;
+}
+.end--source { border-style: dashed; }
+.end--target { border-color: var(--up); }
+.end__kind {
+  font-family: var(--font-display);
+  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-3);
+  display: block; margin-bottom: 3px;
+}
+.end--target .end__kind { color: var(--up); }
+.end__name { font-weight: 600; font-size: 15px; display: block; }
+.end__path {
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-2);
+  display: block; margin-top: 5px; overflow-wrap: anywhere;
+}
+/* Рельс. Он здесь не украшение: у этой утилиты одно направление движения
+   и жёсткий порядок рубежей — рельс говорит и то и другое, поэтому отдельная
+   стрелка между концами убрана как лишняя. */
+.gates {
+  position: relative;
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px;
+  padding-top: 30px;
+}
+.gates::before {
+  content: "";
+  position: absolute; top: 13px; left: 10px; right: 22px;
+  height: 2px; background: var(--up);
+}
+.gates::after {
+  content: "";
+  position: absolute; top: 8px; right: 6px;
+  border: 6px solid transparent; border-left-color: var(--up); border-right: 0;
+}
+.gate {
+  position: relative;
+  display: block; width: 100%; text-align: left;
+  font: inherit; cursor: pointer;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 11px 11px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.gate:hover { box-shadow: 3px 3px 0 var(--line); border-color: var(--ink-3); }
+/* Отвод от рельса к рубежу */
+.gate::before {
+  content: "";
+  position: absolute; top: -17px; left: 22px;
+  width: 2px; height: 17px; background: var(--up);
+}
+.gate__num {
+  font-family: var(--font-display);
+  font-size: 11px; letter-spacing: 0.14em;
+  color: var(--ink-3);
+  display: block;
+}
+.gate__name {
+  font-family: var(--font-display);
+  font-size: 15px; letter-spacing: 0.04em; text-transform: uppercase;
+  display: block; margin: 2px 0 5px;
+}
+.gate__state {
+  font-size: 12px; line-height: 1.35; color: var(--ink-2);
+  display: block; min-height: 2.7em;
+}
+.gate[data-tone="on"]   { border-top-color: var(--up); }
+.gate[data-tone="on"] .gate__num { color: var(--up); }
+.gate[data-tone="warn"] { border-top-color: var(--warn); background: var(--warn-soft); }
+.gate[data-tone="warn"] .gate__num { color: var(--warn); }
+.gate[data-tone="stop"] { border-top-color: var(--stop); background: var(--stop-soft); }
+.gate[data-tone="stop"] .gate__num { color: var(--stop); }
+
+@media (max-width: 900px) {
+  /* Рельс осмыслен только когда рубежи стоят в один ряд. Свернулись
+     в сетку — снимаем его, иначе он врёт про порядок. */
+  .gates { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-top: 0; }
+  .gates::before, .gates::after, .gate::before { display: none; }
+  .route__ends { grid-template-columns: minmax(0, 1fr); margin-bottom: 16px; }
+}
+
+.hint { font-size: 13px; color: var(--ink-3); margin: 0 0 26px; }
+
+/* --- Проверка ------------------------------------------------------------- */
+
+.check {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ok);
+  background: var(--sheet);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 26px;
+}
+.check[data-level="warn"]  { border-left-color: var(--warn); background: var(--warn-soft); }
+.check[data-level="error"] { border-left-color: var(--stop); background: var(--stop-soft); }
+.check__title {
+  font-family: var(--font-display);
+  font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase;
+  margin: 0 0 8px;
+}
+.check__list { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }
+.check__item { display: flex; gap: 10px; align-items: baseline; font-size: 14px; }
+.check__badge {
+  font-family: var(--font-display); font-size: 11px; letter-spacing: 0.1em;
+  text-transform: uppercase; padding: 1px 6px; border-radius: 2px; flex: none;
+  color: #fff;
+}
+.check__badge--error { background: var(--stop); }
+.check__badge--warn  { background: var(--warn); }
+.check__link {
+  background: none; border: none; padding: 0; font: inherit; color: inherit;
+  text-align: left; text-decoration: underline; text-underline-offset: 2px;
+  text-decoration-color: var(--ink-3); cursor: pointer;
+}
+.check__link:hover { text-decoration-color: currentColor; }
+.check__ok { font-size: 14px; color: var(--ink-2); margin: 0; }
+
+/* --- Команда -------------------------------------------------------------- */
+/* Настройки без команды бесполезны: файл кто-то должен запустить. Панель
+   показывает ровно ту строку, которую даёт текущий набор настроек. */
+
+.cmd {
+  background: var(--ink);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 26px;
+  color: #E7EBEE;
+}
+.cmd__head {
+  display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.cmd__title {
+  font-family: var(--font-display);
+  font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase;
+  margin: 0; color: #F2F4F6;
+}
+.cmd__note { font-size: 12.5px; color: #98A3AC; margin: 0 auto 0 0; }
+.cmd__pre {
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.7;
+  background: #12171B;
+  border: 1px solid #2E363E;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin: 0 0 10px;
+  overflow-x: auto;
+  white-space: pre;
+  color: #D6DDE2;
+}
+.cmd__flag { color: #7FD1DE; }
+.cmd__val  { color: #E4CE8C; }
+.cmd__foot { font-size: 12.5px; color: #98A3AC; margin: 0; }
+.cmd__foot code { font-family: var(--font-mono); color: #C6CED4; }
+
+/* --- Секции --------------------------------------------------------------- */
+
+.section {
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  margin-bottom: 16px;
+  scroll-margin-top: calc(var(--bar-height) + 16px);
+}
+.section__head {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.section__title {
+  font-family: var(--font-display);
+  font-size: 21px; letter-spacing: 0.06em; text-transform: uppercase;
+  margin: 0;
+}
+.section__gate {
+  font-family: var(--font-display); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 1px 7px; border-radius: 2px;
+  border: 1px solid var(--line); color: var(--ink-3);
+}
+.section__note { margin: 0 0 18px; font-size: 13.5px; color: var(--ink-2); max-width: 70ch; }
+
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
+.grid--full { grid-template-columns: minmax(0, 1fr); }
+.span-2 { grid-column: 1 / -1; }
+@media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.field__label { font-size: 13.5px; font-weight: 600; }
+.field__help { font-size: 12.5px; color: var(--ink-3); }
+
+.input, .textarea, .select {
+  font-family: var(--font-mono); font-size: 13.5px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  color: var(--ink);
+  width: 100%;
+  min-width: 0;
+}
+.input::placeholder, .textarea::placeholder { color: #A6B0B8; }
+.input:focus, .textarea:focus, .select:focus { border-color: var(--ink); }
+.input[data-invalid="true"] { border-color: var(--stop); background: var(--stop-soft); }
+.select { font-family: var(--font-ui); }
+.textarea { resize: vertical; min-height: 118px; line-height: 1.6; }
+.input--short { max-width: 220px; }
+
+/* Переключатель */
+.toggle { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; }
+.toggle__cb { width: 17px; height: 17px; margin: 2px 0 0; accent-color: var(--up); }
+.toggle__text { min-width: 0; }
+.toggle__label { font-size: 13.5px; font-weight: 600; display: block; }
+.toggle__help { font-size: 12.5px; color: var(--ink-3); display: block; margin-top: 2px; }
+.toggle--risky .toggle__label { color: var(--stop); }
+
+/* Счётчик длины */
+.counter { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3); }
+.counter[data-over="true"] { color: var(--stop); font-weight: 700; }
+
+/* --- Итоговый JSON -------------------------------------------------------- */
+
+.out {
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+}
+.out__pre {
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6;
+  background: #F7F9FA;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin: 0;
+  max-height: 340px; overflow: auto;
+  white-space: pre;
+}
+
+.foot { margin-top: 26px; font-size: 12.5px; color: var(--ink-3); }
+.foot code { font-family: var(--font-mono); }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar__mark">
+    <span class="bar__name">RvsUpload</span>
+    <span class="bar__sub">{{ORG}} · {{UNIT}} · настройки v2.0</span>
+  </div>
+
+  <div class="bar__file" id="fileState" data-state="empty">
+    <span class="bar__dot" aria-hidden="true"></span>
+    <span id="fileStateText">settings.json не открыт</span>
+  </div>
+
+  <div class="bar__actions">
+    <button class="btn btn--ghost" id="btnOpen" type="button">Открыть settings.json</button>
+    <button class="btn" id="btnCopy" type="button">Скопировать JSON</button>
+    <button class="btn btn--primary" id="btnSave" type="button">Сохранить</button>
+  </div>
+  <input type="file" id="fileInput" accept=".json,application/json" hidden>
+</header>
+
+<main class="wrap">
+
+  <p class="eyebrow">Заливка моделей на Revit Server</p>
+  <p class="lead">
+    Здесь собирается <code>settings.json</code> — файл, который утилита читает
+    при запуске. Аргументы командной строки перекрывают всё, что тут задано:
+    это позволяет держать общий файл на пайплайн и менять одну-две вещи
+    на конкретный запуск.
+  </p>
+
+  <!-- ПУТЬ МОДЕЛИ -->
+  <section class="route" aria-label="Путь модели">
+    <div class="route__ends">
+      <div class="end end--source">
+        <span class="end__kind">Откуда</span>
+        <span class="end__name">Локальный файл</span>
+        <span class="end__path" id="routeSource">список моделей не задан</span>
+      </div>
+      <div class="end end--target">
+        <span class="end__kind">Куда</span>
+        <span class="end__name">Revit Server</span>
+        <span class="end__path" id="routeTarget">папка назначения не задана</span>
+      </div>
+    </div>
+
+    <div class="gates">
+      <button class="gate" type="button" data-jump="secRevit" data-tone="off">
+        <span class="gate__num">Рубеж 1</span>
+        <span class="gate__name">Версия</span>
+        <span class="gate__state" id="gate1">—</span>
+      </button>
+      <button class="gate" type="button" data-jump="secDest" data-tone="off">
+        <span class="gate__num">Рубеж 2</span>
+        <span class="gate__name">Лимиты</span>
+        <span class="gate__state" id="gate2">—</span>
+      </button>
+      <button class="gate" type="button" data-jump="secRevit" data-tone="off">
+        <span class="gate__num">Рубеж 3</span>
+        <span class="gate__name">Запуск</span>
+        <span class="gate__state" id="gate3">—</span>
+      </button>
+      <button class="gate" type="button" data-jump="secOpen" data-tone="off">
+        <span class="gate__num">Рубеж 4</span>
+        <span class="gate__name">Открытие</span>
+        <span class="gate__state" id="gate4">—</span>
+      </button>
+      <button class="gate" type="button" data-jump="secDest" data-tone="off">
+        <span class="gate__num">Рубеж 5</span>
+        <span class="gate__name">Заливка</span>
+        <span class="gate__state" id="gate5">—</span>
+      </button>
+      <button class="gate" type="button" data-jump="secRobust" data-tone="off">
+        <span class="gate__num">Рубеж 6</span>
+        <span class="gate__name">Повторы</span>
+        <span class="gate__state" id="gate6">—</span>
+      </button>
+    </div>
+  </section>
+  <p class="hint">
+    Шесть рубежей — это порядок работы утилиты, а не оформление: модель
+    отбраковывается на конкретном рубеже, и в логе ошибка привязана к нему.
+    Нажмите на рубеж, чтобы перейти к его настройкам.
+  </p>
+
+  <!-- ПРОВЕРКА -->
+  <section class="check" id="check" data-level="ok" aria-live="polite">
+    <h2 class="check__title">Проверка настроек</h2>
+    <div id="checkBody"><p class="check__ok">Заполните поля — проверка идёт по ходу.</p></div>
+  </section>
+
+  <!-- КОМАНДА -->
+  <section class="cmd" aria-label="Команда запуска">
+    <div class="cmd__head">
+      <h2 class="cmd__title">Команда запуска</h2>
+      <p class="cmd__note">то, что даёт текущий набор настроек</p>
+      <button class="btn btn--ghost" id="btnCopyCmd" type="button">Скопировать команду</button>
+    </div>
+    <pre class="cmd__pre" id="cmdPre"></pre>
+    <p class="cmd__foot">
+      Короткий вид того же запуска: <code>RvsUpload.exe --config settings.json</code>.
+      Разворачивать в полную строку стоит там, где файла настроек рядом нет —
+      например в планировщике задач.
+    </p>
+  </section>
+
+  <!-- REVIT -->
+  <section class="section" id="secRevit">
+    <div class="section__head">
+      <h2 class="section__title">Revit</h2>
+      <span class="section__gate">Рубежи 1 и 3</span>
+    </div>
+    <p class="section__note">
+      Версия нужна дважды: по ней утилита решает, годится ли модель, ещё
+      до запуска Revit, и её же она запускает. Модель новее указанной версии
+      отклоняется сразу; модель старее Revit откроет и обновит сам.
+    </p>
+    <div class="grid">
+      <div class="field">
+        <label class="field__label" for="fRevitVersion">Версия Revit</label>
+        <select class="select" id="fRevitVersion">
+          <option value="">не задана</option>
+          <option>2021</option><option>2022</option><option>2023</option>
+          <option>2024</option><option>2025</option><option>2026</option>
+        </select>
+        <span class="field__help">Обязательна, если не задан путь к Revit.exe.</span>
+      </div>
+      <div class="field">
+        <label class="field__label" for="fRevitExe">Путь к Revit.exe</label>
+        <input class="input" id="fRevitExe" type="text" placeholder="C:\Program Files\Autodesk\Revit 2024\Revit.exe">
+        <span class="field__help">Нужен, только если Revit установлен нестандартно.</span>
+      </div>
+      <div class="field">
+        <label class="field__label" for="fOnUpgrade">Модель старее Revit</label>
+        <select class="select" id="fOnUpgrade">
+          <option value="">upgrade — обновлять (по умолчанию)</option>
+          <option value="skip">skip — пропускать</option>
+          <option value="fail">fail — считать ошибкой</option>
+        </select>
+        <span class="field__help">
+          Обновление занимает 60–100 секунд против 2–5 обычных и на повреждённых
+          моделях нестабильно. Держите повторы включёнными.
+        </span>
+      </div>
+      <div class="field">
+        <label class="field__label" for="fLanguage">Язык Revit</label>
+        <input class="input input--short" id="fLanguage" type="text" placeholder="ru-RU">
+        <span class="field__help">Пусто — как настроен Revit.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- КУДА -->
+  <section class="section" id="secDest">
+    <div class="section__head">
+      <h2 class="section__title">Куда заливать</h2>
+      <span class="section__gate">Рубежи 2 и 5</span>
+    </div>
+    <p class="section__note">
+      Лимиты Revit Server утилита читает с самого сервера, но проверить длину
+      имени стоит заранее: про ограничение в 40 символов Revit пользователю
+      не сообщает, а подводит оно чаще всего.
+    </p>
+    <div class="grid">
+      <div class="field span-2">
+        <label class="field__label" for="fDestFolder">Папка на сервере</label>
+        <input class="input" id="fDestFolder" type="text" placeholder="RSN://RVTSRV/Проекты/2026">
+        <span class="field__help">
+          Путь папки — до 98 символов на сервере 2021 и 2026, до 126 на 2022–2025.
+          Имя модели — до 40 символов. <span class="counter" id="cntDest"></span>
+        </span>
+      </div>
+      <div class="field span-2">
+        <label class="field__label" for="fListFile">Файл со списком моделей</label>
+        <input class="input" id="fListFile" type="text" placeholder="C:\pipeline\models.txt">
+        <span class="field__help">
+          Одна модель на строку. Имя на сервере можно задать явно через
+          вертикальную черту: <code>C:\out\A.rvt|АР.rvt</code> — это единственный
+          способ залить модель с длинным именем.
+        </span>
+      </div>
+      <div class="field span-2">
+        <label class="field__label" for="fSourceFolder">Или папка с моделями</label>
+        <input class="input" id="fSourceFolder" type="text" placeholder="C:\Выгрузка">
+        <span class="field__help">
+          Вместо списка: что лежит в папке, то и заливается. Список и папка —
+          две равноправные возможности, но в одном запуске выберите одну.
+          Резервные копии Revit и папки <code>*_backup</code> пропускаются.
+        </span>
+      </div>
+      <div class="field">
+        <label class="field__label" for="fStructure">Куда лягут модели</label>
+        <select class="select" id="fStructure">
+          <option value="">всё в одну папку (по умолчанию)</option>
+          <option value="disk">повторить структуру папок с диска</option>
+          <option value="server">туда, где модель уже лежит на сервере</option>
+        </select>
+        <span class="field__help">
+          «Как на сервере» — обратная дорога: модели скачали, обработали
+          и возвращают на прежние места. Что не нашлось или нашлось
+          в двух папках — отбраковывается с записью в лог.
+        </span>
+      </div>
+      <div class="field">
+        <div class="toggle">
+          <input class="toggle__cb" id="fNoRecurse" type="checkbox">
+          <span class="toggle__text">
+            <label class="toggle__label" for="fNoRecurse">Только верхний уровень папки</label>
+            <span class="toggle__help">Не заходить во вложенные папки.</span>
+          </span>
+        </div>
+      </div>
+      <div class="field span-2">
+        <div class="toggle">
+          <input class="toggle__cb" id="fOverwrite" type="checkbox">
+          <span class="toggle__text">
+            <label class="toggle__label" for="fOverwrite">Перезаписывать существующую модель</label>
+            <span class="toggle__help">Без этого повторная заливка отклоняется.</span>
+          </span>
+        </div>
+      </div>
+      <div class="field span-2">
+        <div class="toggle">
+          <input class="toggle__cb" id="fCreateFolders" type="checkbox">
+          <span class="toggle__text">
+            <label class="toggle__label" for="fCreateFolders">Создавать папки, которых нет</label>
+            <span class="toggle__help">Вложенные тоже. Кириллица в именах работает.</span>
+          </span>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field__label" for="fMaximumBackups">Хранить версий на сервере</label>
+        <input class="input input--short" id="fMaximumBackups" type="number" min="0" placeholder="по умолчанию сервера">
+        <span class="field__help">0 — без ограничения.</span>
+      </div>
+      <div class="field">
+        <div class="toggle toggle--risky">
+          <input class="toggle__cb" id="fIgnoreLocks" type="checkbox">
+          <span class="toggle__text">
+            <label class="toggle__label" for="fIgnoreLocks">Не проверять блокировку</label>
+            <span class="toggle__help">
+              На Revit Server 2021 состояние блокировки узнать заранее нельзя —
+              сервер не отвечает на такой запрос.
+            </span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ОТКРЫТИЕ -->
+  <section class="section" id="secOpen">
+    <div class="section__head">
+      <h2 class="section__title">Открытие модели</h2>
+      <span class="section__gate">Рубеж 4</span>
+    </div>
+    <p class="section__note">
+      Модель всегда открывается с отсоединением: копии центральных моделей
+      могут делить один идентификатор, и без отсоединения Revit считает их
+      одной моделью.
+    </p>
+    <div class="grid grid--full">
+      <div class="toggle">
+        <input class="toggle__cb" id="fCloseWorksets" type="checkbox">
+        <span class="toggle__text">
+          <label class="toggle__label" for="fCloseWorksets">Закрывать пользовательские рабочие наборы</label>
+          <span class="toggle__help">
+            Чтобы не подгружались связанные модели, размещённые в этих наборах.
+            На результат не влияет: закрытый набор остаётся в файле целиком.
+            Закрываются и «Общие уровни и сетки» — это тоже пользовательский набор.
+          </span>
+        </span>
+      </div>
+      <div class="toggle">
+        <input class="toggle__cb" id="fUnloadLinks" type="checkbox">
+        <span class="toggle__text">
+          <label class="toggle__label" for="fUnloadLinks">Выгружать связи</label>
+          <span class="toggle__help">Уже после открытия модели — в отличие от закрытия наборов.</span>
+        </span>
+      </div>
+      <div class="toggle">
+        <input class="toggle__cb" id="fAudit" type="checkbox">
+        <span class="toggle__text">
+          <label class="toggle__label" for="fAudit">Проверять структуру при открытии</label>
+          <span class="toggle__help">
+            Для моделей, которым предстоит обновление, включается автоматически.
+            От плавающих падений Revit не спасает.
+          </span>
+        </span>
+      </div>
+      <div class="toggle">
+        <input class="toggle__cb" id="fCompact" type="checkbox">
+        <span class="toggle__text">
+          <label class="toggle__label" for="fCompact">Сжимать модель при сохранении</label>
+          <span class="toggle__help">Заметно дольше на больших моделях.</span>
+        </span>
+      </div>
+      <div class="toggle">
+        <input class="toggle__cb" id="fNoEnableWorksharing" type="checkbox">
+        <span class="toggle__text">
+          <label class="toggle__label" for="fNoEnableWorksharing">Не включать совместную работу</label>
+          <span class="toggle__help">
+            Тогда модель без рабочих наборов будет отклонена, а не залита:
+            на Revit Server принимаются только центральные модели.
+          </span>
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- УСТОЙЧИВОСТЬ -->
+  <section class="section" id="secRobust">
+    <div class="section__head">
+      <h2 class="section__title">Устойчивость</h2>
+      <span class="section__gate">Рубеж 6</span>
+    </div>
+    <p class="section__note">
+      Revit падает внутри себя примерно в одном запуске из трёх при обновлении
+      старой модели. Это не лечится настройками — только повтором, поэтому
+      повторы здесь главное поле, а не запасное.
+    </p>
+    <div class="grid">
+      <div class="field">
+        <label class="field__label" for="fRetries">Повторов после сбоя</label>
+        <input class="input input--short" id="fRetries" type="number" min="0" placeholder="0">
+        <span class="field__help">
+          Перезапуск Revit с остатком незалитых моделей. Для смешанных пакетов — 2.
+        </span>
+      </div>
+      <div class="field">
+        <label class="field__label" for="fTimeoutMinutes">Общий срок, минут</label>
+        <input class="input input--short" id="fTimeoutMinutes" type="number" min="1" placeholder="60">
+        <span class="field__help">Первая заливка большой модели идёт долго — ставьте с запасом.</span>
+      </div>
+      <div class="field">
+        <label class="field__label" for="fStartupTimeoutMinutes">Ждать старта Revit, минут</label>
+        <input class="input input--short" id="fStartupTimeoutMinutes" type="number" min="1" placeholder="5">
+        <span class="field__help">
+          Не дождались — Revit ждёт ответа в окне, которое некому нажать:
+          занята лицензия, восстановление после падения, диалог доверия надстройке.
+        </span>
+      </div>
+      <div class="field">
+        <label class="field__label" for="fIdleTimeoutMinutes">Считать зависшим после, минут</label>
+        <input class="input input--short" id="fIdleTimeoutMinutes" type="number" min="1" placeholder="15">
+        <span class="field__help">Молчание аддина. Обновление версии молчит до двух минут — не ставьте меньше.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ДИАГНОСТИКА -->
+  <section class="section" id="secDiag">
+    <div class="section__head">
+      <h2 class="section__title">Журнал и разбор</h2>
+    </div>
+    <p class="section__note">
+      Когда что-то пойдёт не так, разбираться будут по этим файлам.
+    </p>
+    <div class="grid">
+      <div class="field span-2">
+        <label class="field__label" for="fLogFile">Файл журнала</label>
+        <input class="input" id="fLogFile" type="text" placeholder="C:\pipeline\logs\upload.log">
+        <span class="field__help">Пусто — только вывод в консоль.</span>
+      </div>
+      <div class="field">
+        <div class="toggle">
+          <input class="toggle__cb" id="fKeepTemp" type="checkbox">
+          <span class="toggle__text">
+            <label class="toggle__label" for="fKeepTemp">Сохранять рабочую папку</label>
+            <span class="toggle__help">Там batch.json, лог аддина и result.json каждой попытки.</span>
+          </span>
+        </div>
+      </div>
+      <div class="field">
+        <div class="toggle toggle--risky">
+          <input class="toggle__cb" id="fSkipPreflight" type="checkbox">
+          <span class="toggle__text">
+            <label class="toggle__label" for="fSkipPreflight">Пропускать проверки до запуска</label>
+            <span class="toggle__help">
+              Тогда о недоступном сервере или слишком длинном имени вы узнаете
+              после запуска Revit, а не за секунду до него.
+            </span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- JSON -->
+  <section class="out">
+    <div class="section__head">
+      <h2 class="section__title">settings.json</h2>
+    </div>
+    <p class="section__note">
+      В файл попадает только заполненное. Пустое поле — не «выключено»,
+      а «беру умолчание утилиты».
+    </p>
+    <pre class="out__pre" id="jsonOut"></pre>
+  </section>
+
+  <p class="foot">
+    Страница ничего не отправляет в сеть и работает без интернета.
+    Файл читается и сохраняется браузером на вашей машине.
+    <br>RvsUpload · разработчик {{DEV}} · {{DEV_URL}}
+  </p>
+
+</main>
+
+<script>
+"use strict";
+
+/* Поля страницы ↔ ключи settings.json. Порядок здесь задаёт порядок ключей
+   в файле: так его удобнее читать глазами и сравнивать между проектами. */
+const FIELDS = [
+  ["fRevitVersion",         "RevitVersion",          "int"],
+  ["fRevitExe",             "RevitExe",              "str"],
+  ["fLanguage",             "Language",              "str"],
+  ["fOnUpgrade",            "OnUpgrade",             "str"],
+  ["fDestFolder",           "DestFolder",            "str"],
+  ["fListFile",             "ListFile",              "str"],
+  ["fSourceFolder",         "SourceFolder",          "str"],
+  ["fStructure",            "Structure",             "str"],
+  // Галочка «только верхний уровень» означает Recurse=false. Тип "boolFalse"
+  // пишет ключ со значением false, когда галочка стоит: обычный "bool" умеет
+  // только true, и снятие галочки не отличалось бы от «не задано».
+  ["fNoRecurse",            "Recurse",               "boolFalse"],
+  ["fOverwrite",            "Overwrite",             "bool"],
+  ["fCreateFolders",        "CreateFolders",         "bool"],
+  ["fIgnoreLocks",          "IgnoreLocks",           "bool"],
+  ["fMaximumBackups",       "MaximumBackups",        "int"],
+  ["fCloseWorksets",        "CloseWorksets",         "bool"],
+  ["fUnloadLinks",          "UnloadLinks",           "bool"],
+  ["fAudit",                "Audit",                 "bool"],
+  ["fCompact",              "Compact",               "bool"],
+  ["fNoEnableWorksharing",  "NoEnableWorksharing",   "bool"],
+  ["fRetries",              "Retries",               "int"],
+  ["fTimeoutMinutes",       "TimeoutMinutes",        "int"],
+  ["fStartupTimeoutMinutes","StartupTimeoutMinutes", "int"],
+  ["fIdleTimeoutMinutes",   "IdleTimeoutMinutes",    "int"],
+  ["fLogFile",              "LogFile",               "str"],
+  ["fKeepTemp",             "KeepTemp",              "bool"],
+  ["fSkipPreflight",        "SkipPreflight",         "bool"]
+];
+
+/* Ключ → флаг командной строки. Логические ключи, у которых флаг означает
+   включение, перечислены как есть; NoEnableWorksharing — уже отрицание. */
+const FLAGS = {
+  RevitVersion: "--revit-version", RevitExe: "--revit-exe", Language: "--language",
+  OnUpgrade: "--on-upgrade", DestFolder: "--dest-folder", ListFile: "--list",
+  SourceFolder: "--source-folder", Structure: "--structure", Recurse: "--no-recurse",
+  MaximumBackups: "--max-backups", Retries: "--retries",
+  TimeoutMinutes: "--timeout", StartupTimeoutMinutes: "--startup-timeout",
+  IdleTimeoutMinutes: "--idle-timeout", LogFile: "--log",
+  Overwrite: "--overwrite", CreateFolders: "--create-folders",
+  IgnoreLocks: "--ignore-locks", CloseWorksets: "--close-worksets",
+  UnloadLinks: "--unload-links", Audit: "--audit", Compact: "--compact",
+  NoEnableWorksharing: "--no-enable-worksharing", KeepTemp: "--keep-temp",
+  SkipPreflight: "--skip-preflight"
+};
+
+const $ = (id) => document.getElementById(id);
+let fileHandle = null;
+let dirty = false;
+
+/* --- Сбор настроек -------------------------------------------------------- */
+
+function collect() {
+  const out = {};
+  for (const [id, key, kind] of FIELDS) {
+    const el = $(id);
+    if (kind === "bool") {
+      if (el.checked) out[key] = true;
+    } else if (kind === "boolFalse") {
+      if (el.checked) out[key] = false;
+    } else {
+      const raw = el.value.trim();
+      if (raw === "") continue;
+      out[key] = (kind === "int") ? Number(raw) : raw;
+    }
+  }
+  return out;
+}
+
+function apply(data) {
+  for (const [id, key, kind] of FIELDS) {
+    const el = $(id);
+    const v = data[key];
+    if (kind === "bool") el.checked = v === true;
+    else if (kind === "boolFalse") el.checked = v === false;
+    else el.value = (v === undefined || v === null) ? "" : String(v);
+  }
+}
+
+/* --- Разбор пути ---------------------------------------------------------- */
+
+function parseDest(dest) {
+  const m = /^RSN:\/\/([^/]+)\/(.*)$/i.exec(dest || "");
+  if (!m) return null;
+  return { server: m[1], folder: m[2].replace(/\/+$/, "") };
+}
+
+/* Лимит пути папки зависит от версии сервера: 98 у 2021 и 2026, 126 у 2022–2025.
+   Настоящее значение утилита читает с сервера — здесь только подсказка. */
+function folderLimit(version) {
+  const v = Number(version);
+  if (!v) return 98;
+  return (v >= 2022 && v <= 2025) ? 126 : 98;
+}
+
+/* --- Проверка ------------------------------------------------------------- */
+
+function validate(s) {
+  const errors = [], warns = [];
+  const dest = parseDest(s.DestFolder);
+
+  if (!s.RevitVersion && !s.RevitExe)
+    errors.push(["Не задана версия Revit и не указан путь к Revit.exe — запускать нечего.", "secRevit"]);
+
+  if (!s.DestFolder)
+    errors.push(["Не задана папка на сервере.", "secDest"]);
+  else if (!dest)
+    errors.push(["Папка на сервере должна начинаться с RSN:// и содержать имя сервера.", "secDest"]);
+  else {
+    const limit = folderLimit(s.RevitVersion);
+    if (dest.folder.length > limit)
+      errors.push([`Путь папки — ${dest.folder.length} символов, сервер принимает до ${limit}.`, "secDest"]);
+  }
+
+  if (!s.ListFile)
+    warns.push(["Файл со списком моделей не задан — модель придётся указывать в командной строке.", "secDest"]);
+
+  if (s.OnUpgrade !== "skip" && s.OnUpgrade !== "fail" && !s.Retries)
+    warns.push(["Обновление старых моделей включено, а повторов нет. Revit падает на обновлении примерно раз из трёх — поставьте 2.", "secRobust"]);
+
+  if (s.SkipPreflight)
+    warns.push(["Проверки до запуска отключены: о недоступном сервере вы узнаете после запуска Revit.", "secDiag"]);
+
+  if (s.IgnoreLocks)
+    warns.push(["Проверка блокировки отключена — модель может быть занята другим человеком.", "secDest"]);
+
+  if (s.NoEnableWorksharing)
+    warns.push(["Совместная работа не включается: модели без рабочих наборов будут отклонены.", "secOpen"]);
+
+  if (s.TimeoutMinutes && s.TimeoutMinutes < 15)
+    warns.push([`Общий срок ${s.TimeoutMinutes} мин маловат: одна заливка занимает 1–4 минуты, обновление версии добавляет ещё до двух.`, "secRobust"]);
+
+  if (s.IdleTimeoutMinutes && s.IdleTimeoutMinutes < 3)
+    warns.push([`Зависанием считается молчание ${s.IdleTimeoutMinutes} мин, а обновление версии молчит до двух — исправную работу оборвёт.`, "secRobust"]);
+
+  return { errors, warns };
+}
+
+function renderCheck(s) {
+  const { errors, warns } = validate(s);
+  const box = $("check"), body = $("checkBody");
+  box.dataset.level = errors.length ? "error" : (warns.length ? "warn" : "ok");
+
+  if (!errors.length && !warns.length) {
+    body.innerHTML = '<p class="check__ok">Настройки непротиворечивы. Можно сохранять.</p>';
+    return;
+  }
+  const item = ([text, target], kind) =>
+    `<li class="check__item"><span class="check__badge check__badge--${kind}">${kind === "error" ? "стоп" : "внимание"}</span>` +
+    `<button class="check__link" type="button" data-jump="${target}">${text}</button></li>`;
+
+  body.innerHTML = '<ul class="check__list">' +
+    errors.map((e) => item(e, "error")).join("") +
+    warns.map((w) => item(w, "warn")).join("") + "</ul>";
+}
+
+/* --- Путь модели ---------------------------------------------------------- */
+
+function renderRoute(s) {
+  const dest = parseDest(s.DestFolder);
+  $("routeSource").textContent = s.ListFile || "список моделей не задан";
+  $("routeTarget").textContent = dest ? `${dest.server} / ${dest.folder}` : "папка назначения не задана";
+
+  const set = (n, tone, text) => {
+    const el = $("gate" + n);
+    el.textContent = text;
+    el.closest(".gate").dataset.tone = tone;
+  };
+
+  // 1. Версия
+  if (!s.RevitVersion && !s.RevitExe) set(1, "stop", "версия не задана");
+  else if (s.OnUpgrade === "fail") set(1, "warn", `только ${s.RevitVersion || "заданная версия"}, старые — ошибка`);
+  else if (s.OnUpgrade === "skip") set(1, "on", `${s.RevitVersion || "заданная версия"}, старые пропускаются`);
+  else set(1, "on", `${s.RevitVersion || "по пути к Revit.exe"} и старее`);
+
+  // 2. Лимиты
+  const dfLen = dest ? dest.folder.length : 0;
+  const lim = folderLimit(s.RevitVersion);
+  if (!dest) set(2, "stop", "папка не задана");
+  else if (dfLen > lim) set(2, "stop", `путь ${dfLen} из ${lim} символов`);
+  else set(2, "on", `путь ${dfLen} из ${lim}, имя до 40`);
+
+  // 3. Запуск
+  if (s.SkipPreflight) set(3, "warn", "без проверок до запуска");
+  else set(3, "on", "Revit без journal, задание переменной среды");
+
+  // 4. Открытие
+  const opts = [];
+  if (s.CloseWorksets) opts.push("наборы закрыты");
+  if (s.UnloadLinks) opts.push("связи выгружены");
+  if (s.Audit) opts.push("с проверкой");
+  set(4, "on", "с отсоединением" + (opts.length ? ", " + opts.join(", ") : ""));
+
+  // 5. Заливка
+  if (!s.Overwrite) set(5, "on", "существующую не трогает");
+  else if (s.IgnoreLocks) set(5, "warn", "перезапись, блокировка не проверяется");
+  else set(5, "on", "перезапись разрешена");
+
+  // 6. Повторы
+  if (!s.Retries) set(6, "warn", "повторов нет");
+  else set(6, "on", `до ${s.Retries} повторов, берётся остаток`);
+}
+
+/* --- Команда -------------------------------------------------------------- */
+
+const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const quote = (v) => /[\s"]/.test(v) ? `"${v}"` : v;
+
+function renderCmd(s) {
+  const parts = [];
+  for (const [, key] of FIELDS.map((f) => [f[0], f[1]])) {
+    if (!(key in s)) continue;
+    const flag = FLAGS[key];
+    if (!flag) continue;
+    // Recurse: false — это ключ --no-recurse, а не «--recurse false».
+    if (key === "Recurse") {
+      if (s[key] === false) parts.push(`<span class="cmd__flag">--no-recurse</span>`);
+      continue;
+    }
+    parts.push(s[key] === true
+      ? `<span class="cmd__flag">${flag}</span>`
+      : `<span class="cmd__flag">${flag}</span> <span class="cmd__val">${esc(quote(String(s[key])))}</span>`);
+  }
+  const head = "RvsUpload.exe";
+  $("cmdPre").innerHTML = parts.length
+    ? head + " ^\n  " + parts.join(" ^\n  ")
+    : head + "\n\n<span class=\"cmd__val\">Ничего не задано — команда пустая.</span>";
+}
+
+function cmdPlain() {
+  const s = collect();
+  const parts = [];
+  for (const [, key] of FIELDS.map((f) => [f[0], f[1]])) {
+    if (!(key in s) || !FLAGS[key]) continue;
+    if (key === "Recurse") { if (s[key] === false) parts.push("--no-recurse"); continue; }
+    parts.push(s[key] === true ? FLAGS[key] : `${FLAGS[key]} ${quote(String(s[key]))}`);
+  }
+  return "RvsUpload.exe " + parts.join(" ");
+}
+
+/* --- Пересчёт ------------------------------------------------------------- */
+
+function refresh() {
+  const s = collect();
+
+  const dest = parseDest(s.DestFolder);
+  const lim = folderLimit(s.RevitVersion);
+  const cnt = $("cntDest");
+  if (dest) {
+    cnt.textContent = `Сейчас: ${dest.folder.length} из ${lim}.`;
+    cnt.dataset.over = String(dest.folder.length > lim);
+    $("fDestFolder").dataset.invalid = String(dest.folder.length > lim);
+  } else {
+    cnt.textContent = "";
+    cnt.dataset.over = "false";
+    $("fDestFolder").dataset.invalid = String(Boolean(s.DestFolder));
+  }
+
+  renderRoute(s);
+  renderCheck(s);
+  renderCmd(s);
+
+  const withComment = { "Комментарий": "Настройки RvsUpload. Правится страницей Settings.html. Аргументы командной строки перекрывают этот файл.", ...s };
+  $("jsonOut").textContent = JSON.stringify(withComment, null, 2);
+}
+
+function markDirty() {
+  dirty = true;
+  const st = $("fileState");
+  if (st.dataset.state !== "empty") {
+    st.dataset.state = "dirty";
+    $("fileStateText").textContent = ($("fileStateText").dataset.name || "settings.json") + " — не сохранено";
+  }
+  refresh();
+}
+
+/* --- Файл ----------------------------------------------------------------- */
+
+function setLoaded(name) {
+  const st = $("fileState");
+  st.dataset.state = "loaded";
+  $("fileStateText").dataset.name = name;
+  $("fileStateText").textContent = name;
+  dirty = false;
+}
+
+async function openFile() {
+  if (typeof window.showOpenFilePicker === "function") {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: "Настройки", accept: { "application/json": [".json"] } }]
+      });
+      fileHandle = handle;
+      const text = await (await handle.getFile()).text();
+      loadText(text, handle.name);
+      return;
+    } catch (e) {
+      if (e && e.name === "AbortError") return;
+      // Диалог недоступен — уходим на обычный выбор файла ниже.
+    }
+  }
+  $("fileInput").click();
+}
+
+function loadText(text, name) {
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    alert("Не удалось прочитать файл: " + e.message + "\n\nПроверьте, что это settings.json, а не другой файл.");
+    return;
+  }
+  apply(data);
+  setLoaded(name);
+  refresh();
+}
+
+async function saveFile() {
+  const json = JSON.stringify({ "Комментарий": "Настройки RvsUpload. Правится страницей Settings.html. Аргументы командной строки перекрывают этот файл.", ...collect() }, null, 2);
+
+  if (fileHandle) {
+    try {
+      const w = await fileHandle.createWritable();
+      await w.write(json);
+      await w.close();
+      setLoaded(fileHandle.name);
+      return;
+    } catch (e) { /* падаем на скачивание */ }
+  }
+  if (typeof window.showSaveFilePicker === "function") {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: "settings.json",
+        types: [{ description: "Настройки", accept: { "application/json": [".json"] } }]
+      });
+      const w = await handle.createWritable();
+      await w.write(json);
+      await w.close();
+      fileHandle = handle;
+      setLoaded(handle.name);
+      return;
+    } catch (e) {
+      if (e && e.name === "AbortError") return;
+    }
+  }
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "settings.json";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+async function copyText(text, btn) {
+  const label = btn.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = "Скопировано";
+  } catch (e) {
+    btn.textContent = "Не вышло — выделите вручную";
+  }
+  setTimeout(() => { btn.textContent = label; }, 1600);
+}
+
+/* --- Связывание ----------------------------------------------------------- */
+
+for (const [id] of FIELDS) {
+  const el = $(id);
+  el.addEventListener(el.type === "checkbox" ? "change" : "input", markDirty);
+}
+
+document.addEventListener("click", (ev) => {
+  const jump = ev.target.closest("[data-jump]");
+  if (!jump) return;
+  const target = document.getElementById(jump.dataset.jump);
+  if (target) target.scrollIntoView({ block: "start" });
+});
+
+$("btnOpen").addEventListener("click", openFile);
+$("btnSave").addEventListener("click", saveFile);
+$("btnCopy").addEventListener("click", (e) =>
+  copyText(JSON.stringify({ "Комментарий": "Настройки RvsUpload.", ...collect() }, null, 2), e.currentTarget));
+$("btnCopyCmd").addEventListener("click", (e) => copyText(cmdPlain(), e.currentTarget));
+
+$("fileInput").addEventListener("change", (ev) => {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => loadText(String(reader.result), file.name);
+  reader.readAsText(file, "UTF-8");
+  ev.target.value = "";
+});
+
+window.addEventListener("beforeunload", (ev) => {
+  if (!dirty) return;
+  ev.preventDefault();
+  ev.returnValue = "";
+});
+
+/* Умолчания, с которых начинают: они же рекомендованы в инструкции. */
+$("fOverwrite").checked = true;
+$("fCreateFolders").checked = true;
+$("fCloseWorksets").checked = true;
+$("fRetries").value = "2";
+refresh();
+dirty = false;
+</script>
+</body>
+</html>

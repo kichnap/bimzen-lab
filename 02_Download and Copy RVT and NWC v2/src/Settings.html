@@ -1,0 +1,1443 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Настройки пайплайна DownloadAndCopyRVTNWC — {{ORG}}</title>
+<style>
+/* ============================================================================
+   {{ORG}}. {{UNIT}} · разработчик {{DEV}}
+   Редактор config.json для пайплайна DownloadAndCopyRVTNWC
+   Версия 2.2 (12.08.2026)
+
+   Страница работает без интернета: шрифты системные (Windows), внешних
+   запросов нет. Это принципиально — рабочая станция BIM-отдела изолирована.
+   ========================================================================= */
+
+:root {
+  /* Цвет кодирует направление движения файлов, а не оформляет страницу */
+  --ink:        #1C2126;
+  --ink-2:      #4A545E;
+  --ink-3:      #79848F;
+  --planshet:   #E4E7EA;
+  --sheet:      #FFFFFF;
+  --line:       #C9D0D6;
+  --line-soft:  #E3E7EA;
+  --out:        #0B6E7F;  /* исходящий поток: от нас наружу */
+  --out-soft:   #E4F1F3;
+  --in:         #56479B;  /* входящий поток: от смежников к нам */
+  --in-soft:    #ECEAF6;
+  --stop:       #B02A3F;
+  --stop-soft:  #FBEAEC;
+  --warn:       #8A6A00;
+  --warn-soft:  #FBF3DC;
+  --ok:         #1F6B4A;
+
+  --font-display: "Bahnschrift SemiCondensed", "Bahnschrift", "DIN Condensed", "Segoe UI Semibold", "Segoe UI", sans-serif;
+  --font-ui: "Segoe UI", system-ui, sans-serif;
+  --font-mono: Consolas, "Cascadia Mono", "Courier New", monospace;
+
+  --radius: 3px;
+  --bar-height: 60px;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--bar-height) + 20px); }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+body {
+  margin: 0;
+  background: var(--planshet);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* --- Шапка ---------------------------------------------------------------- */
+
+.bar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 20px;
+  min-height: var(--bar-height);
+  padding: 8px 24px;
+  background: var(--ink);
+  color: #F2F4F6;
+  flex-wrap: wrap;
+}
+.bar__mark { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.bar__name {
+  font-family: var(--font-display);
+  font-size: 20px; letter-spacing: 0.08em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.bar__sub { font-size: 12px; color: #98A3AC; white-space: nowrap; }
+.bar__file {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 12.5px; color: #C6CED4;
+  min-width: 0;
+}
+.bar__dot { width: 7px; height: 7px; border-radius: 50%; background: #6C7883; flex: none; }
+.bar__file[data-state="loaded"] .bar__dot { background: #4FB286; }
+.bar__file[data-state="dirty"]  .bar__dot { background: #E0B33C; }
+.bar__file[data-state="dirty"]  { color: #F0D48A; }
+.bar__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.btn {
+  font-family: var(--font-ui); font-size: 14px;
+  padding: 9px 16px;
+  border: 1px solid transparent; border-radius: var(--radius);
+  background: #2E363E; color: #E7EBEE;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.btn:hover { background: #3C4650; }
+.btn--primary { background: #F2F4F6; color: var(--ink); font-weight: 600; }
+.btn--primary:hover { background: #FFFFFF; }
+.btn--ghost { background: transparent; border-color: #454E57; }
+.btn--ghost:hover { background: #2E363E; }
+
+/* --- Полотно -------------------------------------------------------------- */
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 28px 24px 96px; }
+
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 10px;
+}
+
+.lead { max-width: 62ch; margin: 0 0 24px; color: var(--ink-2); font-size: 15px; }
+
+/* --- Схема маршрута ------------------------------------------------------- */
+
+.schema {
+  position: relative;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 14px;
+  /* Миллиметровка: единственная декоративная поверхность на странице */
+  background-image:
+    linear-gradient(var(--line-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+  background-size: 24px 24px, 24px 24px;
+}
+
+.schema__grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 200px) minmax(240px, 1fr) minmax(150px, 210px);
+  gap: 16px 20px;
+  align-items: start;
+}
+
+.node {
+  background: var(--sheet);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  display: block;
+  transition: box-shadow 0.12s ease, transform 0.12s ease;
+}
+.node:hover { box-shadow: 4px 4px 0 var(--line); }
+.node__kind {
+  font-family: var(--font-display);
+  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-3);
+  display: block; margin-bottom: 3px;
+}
+.node__name { font-weight: 600; font-size: 15px; display: block; }
+.node__path {
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-2);
+  display: block; margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+.node--local { border-style: dashed; }
+
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.stack--center { justify-content: center; }
+
+/* Шаг = переключатель + элемент схемы */
+.step { display: block; position: relative; cursor: pointer; }
+.step__cb { position: absolute; opacity: 0; width: 0; height: 0; }
+.step__body {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  border-radius: var(--radius);
+  transition: border-color 0.12s ease, background 0.12s ease, opacity 0.12s ease;
+}
+.step__num {
+  font-family: var(--font-display);
+  font-size: 19px; letter-spacing: 0.02em;
+  color: var(--ink-3);
+  text-align: center;
+}
+.step__label { font-size: 14px; line-height: 1.35; color: var(--ink-2); }
+.step__arrow { font-size: 15px; color: var(--ink-3); font-family: var(--font-mono); }
+
+.step__cb:checked + .step__body { background: var(--sheet); }
+.step__cb:checked + .step__body .step__label { color: var(--ink); }
+.step__cb:not(:checked) + .step__body { opacity: 0.55; background: transparent; }
+
+.step--out .step__cb:checked + .step__body { border-color: var(--line); border-left-color: var(--out); background: var(--out-soft); }
+.step--out .step__cb:checked + .step__body .step__num,
+.step--out .step__cb:checked + .step__body .step__arrow { color: var(--out); }
+.step--in  .step__cb:checked + .step__body { border-color: var(--line); border-left-color: var(--in); background: var(--in-soft); }
+.step--in  .step__cb:checked + .step__body .step__num,
+.step--in  .step__cb:checked + .step__body .step__arrow { color: var(--in); }
+
+.step:hover .step__body { border-color: var(--ink-3); }
+.step__cb:focus-visible + .step__body { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.schema__legend {
+  display: flex; gap: 20px; flex-wrap: wrap;
+  margin-top: 18px; padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 12.5px; color: var(--ink-2);
+}
+.legend__item { display: flex; align-items: center; gap: 7px; }
+.legend__swatch { width: 12px; height: 3px; }
+.legend__swatch--out { background: var(--out); }
+.legend__swatch--in { background: var(--in); }
+
+.hint { font-size: 13px; color: var(--ink-3); margin: 0 0 28px; }
+
+/* --- Проверка ------------------------------------------------------------- */
+
+.check {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ok);
+  background: var(--sheet);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 28px;
+}
+.check[data-level="warn"] { border-left-color: var(--warn); background: var(--warn-soft); }
+.check[data-level="error"] { border-left-color: var(--stop); background: var(--stop-soft); }
+.check__title {
+  font-family: var(--font-display);
+  font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase;
+  margin: 0 0 8px;
+}
+.check__list { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }
+.check__item { display: flex; gap: 10px; align-items: baseline; font-size: 14px; }
+.check__badge {
+  font-family: var(--font-display); font-size: 11px; letter-spacing: 0.1em;
+  text-transform: uppercase; padding: 1px 6px; border-radius: 2px; flex: none;
+  color: #fff;
+}
+.check__badge--error { background: var(--stop); }
+.check__badge--warn { background: var(--warn); }
+.check__link {
+  background: none; border: none; padding: 0; font: inherit; color: inherit;
+  text-align: left; text-decoration: underline; text-underline-offset: 2px;
+  text-decoration-color: var(--ink-3); cursor: pointer;
+}
+.check__link:hover { text-decoration-color: currentColor; }
+.check__ok { font-size: 14px; color: var(--ink-2); margin: 0; }
+
+/* --- Секции настроек ------------------------------------------------------ */
+
+.section {
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  margin-bottom: 16px;
+  scroll-margin-top: calc(var(--bar-height) + 16px);
+}
+.section[data-idle="true"] { opacity: 0.62; }
+.section[data-idle="true"] .section__idle { display: inline; }
+.section__idle { display: none; font-size: 12.5px; color: var(--ink-3); font-style: italic; }
+
+.section__head {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.section__title {
+  font-family: var(--font-display);
+  font-size: 21px; letter-spacing: 0.06em; text-transform: uppercase;
+  margin: 0;
+}
+.section__note { margin: 0 0 18px; font-size: 13.5px; color: var(--ink-2); max-width: 68ch; }
+
+.steps-tag { display: flex; gap: 4px; }
+.steps-tag__item {
+  font-family: var(--font-display); font-size: 11px; letter-spacing: 0.06em;
+  min-width: 20px; text-align: center;
+  padding: 1px 5px; border-radius: 2px;
+  border: 1px solid var(--line); color: var(--ink-3);
+}
+.steps-tag__item[data-on="true"][data-dir="out"] { border-color: var(--out); color: var(--out); background: var(--out-soft); }
+.steps-tag__item[data-on="true"][data-dir="in"] { border-color: var(--in); color: var(--in); background: var(--in-soft); }
+
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
+.grid--full { grid-template-columns: minmax(0, 1fr); }
+.span-2 { grid-column: 1 / -1; }
+
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.field__label { font-size: 13.5px; font-weight: 600; }
+.field__help { font-size: 12.5px; color: var(--ink-3); }
+.field__help--stack { margin-top: -2px; }
+
+.input, .textarea, .select {
+  font-family: var(--font-mono); font-size: 13.5px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  color: var(--ink);
+  width: 100%;
+  min-width: 0;
+}
+.input::placeholder, .textarea::placeholder { color: #A6B0B8; }
+.input:focus, .textarea:focus, .select:focus { border-color: var(--ink); }
+.input[data-invalid="true"] { border-color: var(--stop); background: var(--stop-soft); }
+.select { font-family: var(--font-ui); }
+.textarea { resize: vertical; min-height: 118px; line-height: 1.6; }
+.input--short { max-width: 220px; }
+
+/* Подстановка стандартного пути к утилите по выбранной версии */
+.pathgen { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pathgen .select--year { width: auto; min-width: 92px; padding: 6px 8px; font-size: 13px; }
+.btn-inset {
+  font-family: var(--font-ui); font-size: 13px; white-space: nowrap;
+  padding: 7px 12px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--planshet); color: var(--ink); cursor: pointer;
+}
+.btn-inset:hover { background: #D7DCE0; }
+
+/* --- Поле-список (чипы) --------------------------------------------------- */
+
+.tags {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 7px 8px;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--sheet);
+  cursor: text;
+}
+.tags:focus-within { border-color: var(--ink); }
+.tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 5px 3px 9px;
+  border-radius: 2px;
+  font-family: var(--font-mono); font-size: 13px;
+  background: var(--planshet); color: var(--ink);
+}
+.tag--stop { background: var(--stop-soft); color: var(--stop); }
+.tag--in { background: var(--in-soft); color: var(--in); }
+.tag__x {
+  border: none; background: none; cursor: pointer;
+  font-size: 15px; line-height: 1; padding: 0 2px; color: inherit; opacity: 0.6;
+}
+.tag__x:hover { opacity: 1; }
+.tags__input {
+  border: none; outline: none; background: none;
+  font-family: var(--font-mono); font-size: 13.5px;
+  padding: 3px 2px; flex: 1; min-width: 130px; color: var(--ink);
+}
+
+/* --- Переключатель -------------------------------------------------------- */
+
+.switch { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.switch__cb { margin: 2px 0 0; width: 17px; height: 17px; accent-color: var(--ink); flex: none; }
+.switch__text { display: flex; flex-direction: column; gap: 2px; }
+.switch__title { font-weight: 600; font-size: 14px; }
+.switch__note { font-size: 12.5px; color: var(--ink-3); }
+
+.vpn__body { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line-soft); }
+.vpn__body[hidden] { display: none; }
+
+/* --- JSON ----------------------------------------------------------------- */
+
+.json { background: var(--sheet); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; }
+.json__summary {
+  font-family: var(--font-display); font-size: 13px; letter-spacing: 0.12em;
+  text-transform: uppercase; cursor: pointer;
+}
+.json__pre {
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55;
+  background: var(--planshet); border-radius: var(--radius);
+  padding: 14px; margin: 14px 0 0; overflow-x: auto; max-height: 420px;
+}
+
+/* --- Сообщение о сохранении ----------------------------------------------- */
+
+.toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+  z-index: 30; max-width: min(560px, calc(100vw - 32px));
+  background: var(--ink); color: #F2F4F6;
+  border-radius: var(--radius);
+  padding: 13px 18px; font-size: 14px;
+  box-shadow: 0 8px 24px rgba(28, 33, 38, 0.28);
+}
+.toast[hidden] { display: none; }
+.toast--error { background: var(--stop); }
+.toast__where { display: block; font-family: var(--font-mono); font-size: 12.5px; color: #B9C2C9; margin-top: 4px; }
+.toast--error .toast__where { color: #F6D9DD; }
+
+.footnote { margin: 28px 0 0; font-size: 12.5px; color: var(--ink-3); max-width: 70ch; }
+
+/* --- Узкие экраны --------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .schema__grid { grid-template-columns: minmax(0, 1fr); }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .bar { padding: 10px 16px; }
+  .wrap { padding: 22px 16px 80px; }
+  .step__body { grid-template-columns: 30px 1fr auto; }
+}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar__mark">
+    <span class="bar__name">DownloadAndCopyRVTNWC</span>
+    <span class="bar__sub">{{ORG}} · {{UNIT}} · настройки v2.3</span>
+  </div>
+
+  <div class="bar__file" id="fileState" data-state="empty">
+    <span class="bar__dot" aria-hidden="true"></span>
+    <span id="fileStateText">config.json не открыт</span>
+  </div>
+
+  <div class="bar__actions">
+    <button class="btn btn--ghost" id="btnOpen" type="button">Открыть config.json</button>
+    <button class="btn" id="btnCopy" type="button">Скопировать JSON</button>
+    <button class="btn btn--primary" id="btnSave" type="button">Сохранить</button>
+  </div>
+  <input type="file" id="fileInput" accept=".json,application/json" hidden>
+</header>
+
+<main class="wrap">
+
+  <p class="eyebrow">Маршрут пайплайна</p>
+  <p class="lead">
+    Пайплайн забирает модели с RevitServer, конвертирует их в NWC и раскладывает по файловым
+    серверам. Нажмите на шаг, чтобы включить или выключить его, — выключенные шаги пайплайн
+    пропускает. Нажмите на узел, чтобы перейти к его настройкам.
+  </p>
+
+  <div class="schema">
+    <div class="schema__grid">
+
+      <button class="node" type="button" data-goto="secRevitServer">
+        <span class="node__kind">Источник</span>
+        <span class="node__name">RevitServer</span>
+        <span class="node__path" id="nodeRevitServer">адрес не задан</span>
+      </button>
+
+      <div class="stack">
+        <label class="step step--out">
+          <input type="checkbox" class="step__cb optionCheckbox" value="01_Step1_DownloadFromRevitServer.ps1" data-step="1" data-dir="out">
+          <span class="step__body">
+            <span class="step__num">01</span>
+            <span class="step__label">Скачать модели с RevitServer в локальную папку</span>
+            <span class="step__arrow">→</span>
+          </span>
+        </label>
+        <label class="step step--out">
+          <input type="checkbox" class="step__cb optionCheckbox" value="02_Step2_ConvertToNWC.ps1" data-step="2" data-dir="out">
+          <span class="step__body">
+            <span class="step__num">02</span>
+            <span class="step__label">Сконвертировать локальные RVT в NWC</span>
+            <span class="step__arrow">↓</span>
+          </span>
+        </label>
+      </div>
+
+      <button class="node node--local" type="button" data-goto="secLocal">
+        <span class="node__kind">Рабочая станция</span>
+        <span class="node__name">Локальные папки</span>
+        <span class="node__path" id="nodeLocal">рядом со скриптами</span>
+      </button>
+
+      <div></div>
+
+      <div class="stack">
+        <label class="step step--out">
+          <input type="checkbox" class="step__cb optionCheckbox" value="03_Step3_UploadToPartnersNWC.ps1" data-step="3" data-dir="out">
+          <span class="step__body">
+            <span class="step__num">03</span>
+            <span class="step__label">Выгрузить наши NWC на сервер заказчика</span>
+            <span class="step__arrow">→</span>
+          </span>
+        </label>
+        <label class="step step--out">
+          <input type="checkbox" class="step__cb optionCheckbox" value="04_Step4_UploadToPartnersRVT.ps1" data-step="4" data-dir="out">
+          <span class="step__body">
+            <span class="step__num">04</span>
+            <span class="step__label">Выгрузить наши RVT на сервер заказчика</span>
+            <span class="step__arrow">→</span>
+          </span>
+        </label>
+        <label class="step step--in">
+          <input type="checkbox" class="step__cb optionCheckbox" value="06_Step6_SyncFromPartnersNWC.ps1" data-step="6" data-dir="in">
+          <span class="step__body">
+            <span class="step__num">06</span>
+            <span class="step__label">Забрать NWC смежников на наш сервер</span>
+            <span class="step__arrow">←</span>
+          </span>
+        </label>
+        <label class="step step--in">
+          <input type="checkbox" class="step__cb optionCheckbox" value="07_Step7_SyncFromPartnersRVT.ps1" data-step="7" data-dir="in">
+          <span class="step__body">
+            <span class="step__num">07</span>
+            <span class="step__label">Забрать RVT смежников на наш сервер</span>
+            <span class="step__arrow">←</span>
+          </span>
+        </label>
+      </div>
+
+      <button class="node" type="button" data-goto="secPartners">
+        <span class="node__kind">Заказчик</span>
+        <span class="node__name">Сервер заказчика</span>
+        <span class="node__path" id="nodePartners">папки не заданы</span>
+      </button>
+
+      <div></div>
+
+      <div class="stack">
+        <label class="step step--out">
+          <input type="checkbox" class="step__cb optionCheckbox" value="05_Step5_UploadToFileServerNWC.ps1" data-step="5" data-dir="out">
+          <span class="step__body">
+            <span class="step__num">05</span>
+            <span class="step__label">Выгрузить наши NWC на наш файловый сервер</span>
+            <span class="step__arrow">→</span>
+          </span>
+        </label>
+      </div>
+
+      <button class="node" type="button" data-goto="secFileServer">
+        <span class="node__kind">Наш сервер</span>
+        <span class="node__name">Файловый сервер</span>
+        <span class="node__path" id="nodeFileServer">папки не заданы</span>
+      </button>
+
+    </div>
+
+    <div class="schema__legend">
+      <span class="legend__item"><span class="legend__swatch legend__swatch--out" aria-hidden="true"></span> Отдаём: наши модели уходят наружу</span>
+      <span class="legend__item"><span class="legend__swatch legend__swatch--in" aria-hidden="true"></span> Забираем: модели смежников приходят к нам</span>
+    </div>
+  </div>
+
+  <p class="hint">Порядок шагов задан пайплайном и не меняется: 01 → 07.</p>
+
+  <section class="check" id="check" data-level="ok" aria-live="polite">
+    <h2 class="check__title" id="checkTitle">Проверка настроек</h2>
+    <p class="check__ok" id="checkOk">Откройте config.json или заполните поля — проверка идёт по ходу правок.</p>
+    <ul class="check__list" id="checkList" hidden></ul>
+  </section>
+
+  <!-- ------------------------------------------------------------------ -->
+  <section class="section" id="secRevitServer">
+    <div class="section__head">
+      <h2 class="section__title">RevitServer</h2>
+      <span class="steps-tag" data-steps="1"></span>
+      <span class="section__idle">шаг 01 выключен — поля не используются</span>
+    </div>
+    <p class="section__note">Откуда берутся наши модели. Пути указываются так, как они выглядят в Revit Server Administrator: от корня хранилища, без имени сервера.</p>
+
+    <div class="grid">
+      <div class="field">
+        <label class="field__label" for="RevitServerName">Адрес RevitServer</label>
+        <input id="RevitServerName" class="input" type="text" placeholder="RVTSRV">
+        <span class="field__help">IP или имя сервера</span>
+      </div>
+      <div class="field">
+        <label class="field__label" for="RevitServerToolPath">RevitServerTool.exe</label>
+        <input id="RevitServerToolPath" class="input" type="text" placeholder="C:\Program Files\Autodesk\Revit 2021\RevitServerToolCommand\RevitServerTool.exe">
+        <div class="pathgen">
+          <select id="RevitServerToolYear" class="select select--year" aria-label="Версия Revit"></select>
+          <button type="button" class="btn-inset" data-target="RevitServerToolPath" data-tpl="revit">Стандартный путь</button>
+        </div>
+        <span class="field__help">Ставится вместе с Revit. Кнопка подставит стандартный путь для выбранной версии, дальше его можно поправить</span>
+      </div>
+      <div class="field span-2">
+        <label class="field__label" for="RevitModelsPath">Модели для скачивания <span id="modelsCount" class="field__help"></span></label>
+        <textarea id="RevitModelsPath" class="textarea" spellcheck="false" placeholder="Проект\03_MEP\02_ОВ1\Проект_Р_ОВ1_C1-3_R21.rvt&#10;Проект\03_MEP\01_ВК\Проект_Р_ВК_C1-3_R21.rvt"></textarea>
+        <span class="field__help">По одной модели в строке</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------------ -->
+  <section class="section" id="secLocal">
+    <div class="section__head">
+      <h2 class="section__title">Рабочая станция</h2>
+      <span class="steps-tag" data-steps="1,2,3,4,5"></span>
+      <span class="section__idle">не используется при текущем наборе шагов</span>
+    </div>
+    <p class="section__note">Промежуточные папки на машине, где выполняется пайплайн. Если оставить пустыми, пайплайн создаст папки RVT и NWC рядом со скриптами.</p>
+
+    <div class="grid">
+      <div class="field">
+        <label class="field__label" for="LocalRVTFolder">Папка для RVT</label>
+        <input id="LocalRVTFolder" class="input" type="text" placeholder="C:\TEMP\RVT">
+      </div>
+      <div class="field">
+        <label class="field__label" for="LocalNWCFolder">Папка для NWC</label>
+        <input id="LocalNWCFolder" class="input" type="text" placeholder="C:\TEMP\NWC">
+      </div>
+      <div class="field span-2">
+        <label class="field__label" for="NavisworksToolPath">FiletoolsTaskRunner.exe</label>
+        <input id="NavisworksToolPath" class="input" type="text" placeholder="C:\Program Files\Autodesk\Navisworks Manage 2021\FiletoolsTaskRunner.exe">
+        <div class="pathgen">
+          <select id="NavisworksToolYear" class="select select--year" aria-label="Версия Navisworks"></select>
+          <button type="button" class="btn-inset" data-target="NavisworksToolPath" data-tpl="navis">Стандартный путь</button>
+        </div>
+        <span class="field__help">Конвертирует RVT в NWC, ставится вместе с Navisworks Manage. Кнопка подставит стандартный путь для выбранной версии</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------------ -->
+  <section class="section" id="secPartners">
+    <div class="section__head">
+      <h2 class="section__title">Сервер заказчика</h2>
+      <span class="steps-tag" data-steps="3,4,6,7"></span>
+      <span class="section__idle">шаги 03, 04, 06, 07 выключены — поля не используются</span>
+    </div>
+    <p class="section__note">Обмен с заказчиком идёт в обе стороны: мы кладём туда свои модели и забираем оттуда модели смежников.</p>
+
+    <div class="grid">
+      <div class="field">
+        <label class="field__label" for="PartnersRevitFolder">Папка RVT у заказчика</label>
+        <input id="PartnersRevitFolder" class="input" type="text" placeholder="\\PARTNER-NAS\03_Projects\...\00_SHARED">
+      </div>
+      <div class="field">
+        <label class="field__label" for="PartnersNWCFolder">Папка NWC у заказчика</label>
+        <input id="PartnersNWCFolder" class="input" type="text" placeholder="\\PARTNER-NAS\03_Projects\...\01_МОДЕЛИ">
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="SuffixRVTPartners">Суффикс к имени RVT</label>
+        <input id="SuffixRVTPartners" class="input input--short" type="text" placeholder="_shared">
+        <span class="field__help" id="suffixRvtPreview">Добавляется при выгрузке заказчику</span>
+      </div>
+      <div class="field">
+        <label class="field__label" for="SuffixNWCPartners">Суффикс к имени NWC</label>
+        <input id="SuffixNWCPartners" class="input input--short" type="text" placeholder="без суффикса">
+        <span class="field__help" id="suffixNwcPreview">Добавляется при выгрузке заказчику</span>
+      </div>
+
+      <div class="field span-2">
+        <label class="field__label" for="stopInput">Не выгружать модели, содержащие</label>
+        <div class="tags" id="stopTags" data-input="stopInput">
+          <input id="stopInput" class="tags__input" type="text" placeholder="например, ОТВ" aria-describedby="stopHelp">
+        </div>
+        <span class="field__help" id="stopHelp">Введите фрагмент имени и нажмите Enter. Пустой список означает, что заказчику уходят все модели.</span>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="rvtFromInput">Забирать RVT, содержащие</label>
+        <div class="tags" id="rvtFromTags" data-input="rvtFromInput">
+          <input id="rvtFromInput" class="tags__input" type="text" placeholder="например, АР" aria-describedby="rvtFromHelp">
+        </div>
+        <span class="field__help" id="rvtFromHelp">Шаг 07. Пустой список — шаг ничего не копирует.</span>
+      </div>
+      <div class="field">
+        <label class="field__label" for="nwcFromInput">Забирать NWC, содержащие</label>
+        <div class="tags" id="nwcFromTags" data-input="nwcFromInput">
+          <input id="nwcFromInput" class="tags__input" type="text" placeholder="например, КР" aria-describedby="nwcFromHelp">
+        </div>
+        <span class="field__help" id="nwcFromHelp">Шаг 06. Пустой список — шаг ничего не копирует.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------------ -->
+  <section class="section" id="secFileServer">
+    <div class="section__head">
+      <h2 class="section__title">Наш файловый сервер</h2>
+      <span class="steps-tag" data-steps="5,6,7"></span>
+      <span class="section__idle">шаги 05, 06, 07 выключены — поля не используются</span>
+    </div>
+    <p class="section__note">Куда складываются модели для внутренней работы и проверок. Имена файлов здесь не меняются.</p>
+
+    <div class="grid">
+      <div class="field">
+        <label class="field__label" for="FileServerRevitFolder">Папка RVT</label>
+        <input id="FileServerRevitFolder" class="input" type="text" placeholder="\\FILESRV\проекты\...\01_В_Работе">
+      </div>
+      <div class="field">
+        <label class="field__label" for="FileServerNWCFolder">Папка NWC</label>
+        <input id="FileServerNWCFolder" class="input" type="text" placeholder="\\FILESRV\проекты\...\01_Модели">
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------------ -->
+  <section class="section" id="secVpn">
+    <div class="section__head">
+      <h2 class="section__title">VPN</h2>
+      <span class="section__idle">выключен</span>
+    </div>
+    <p class="section__note">RevitServer и серверы заказчика доступны только через VPN. Включите, если пайплайн запускается по расписанию, — поднять соединение вручную будет некому.</p>
+
+    <label class="switch">
+      <input type="checkbox" id="VpnEnabled" class="switch__cb">
+      <span class="switch__text">
+        <span class="switch__title">Подключать VPN перед запуском</span>
+        <span class="switch__note">Соединение, поднятое вручную до запуска, пайплайн не разрывает</span>
+      </span>
+    </label>
+
+    <div class="vpn__body" id="vpnBody" hidden>
+      <div class="grid">
+        <div class="field">
+          <label class="field__label" for="VpnType">Клиент VPN</label>
+          <select id="VpnType" class="select">
+            <option value="SoftEther">SoftEther VPN Client</option>
+            <option value="Rasdial">Встроенный VPN Windows</option>
+          </select>
+        </div>
+        <div class="field" id="fieldAccountName">
+          <label class="field__label" for="VpnAccountName">Имя подключения в SoftEther</label>
+          <input id="VpnAccountName" class="input" type="text" placeholder="Проект-VPN">
+          <span class="field__help">Как называется подключение в клиенте</span>
+        </div>
+        <div class="field" id="fieldRasEntry" hidden>
+          <label class="field__label" for="VpnRasEntryName">Имя подключения Windows</label>
+          <input id="VpnRasEntryName" class="input" type="text" placeholder="как в «Сетевых подключениях»">
+        </div>
+        <div class="field span-2" id="fieldVpnCmd">
+          <label class="field__label" for="VpnCmdPath">vpncmd.exe</label>
+          <input id="VpnCmdPath" class="input" type="text" placeholder="C:\Program Files\SoftEther VPN Client\vpncmd.exe">
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="VpnTestHost">Проверять доступность узла</label>
+          <input id="VpnTestHost" class="input" type="text" placeholder="PARTNER-NAS">
+          <span class="field__help">Подключение считается успешным, когда узел ответил</span>
+        </div>
+        <div class="field">
+          <label class="field__label" for="VpnTestPort">Порт для проверки</label>
+          <input id="VpnTestPort" class="input input--short" type="number" min="0" max="65535" placeholder="445">
+          <span class="field__help">445 — файловый сервер, 80 — RevitServer, 0 — проверять ping</span>
+        </div>
+        <div class="field">
+          <label class="field__label" for="VpnConnectTimeoutSeconds">Ждать подключения, секунд</label>
+          <input id="VpnConnectTimeoutSeconds" class="input input--short" type="number" min="10" max="3600" placeholder="90">
+        </div>
+        <div class="field">
+          <label class="field__label" for="VpnPasswordEnvVar">Переменная окружения с паролем управления</label>
+          <input id="VpnPasswordEnvVar" class="input" type="text" placeholder="обычно пусто">
+          <span class="field__help">Здесь указывается имя переменной, а не сам пароль. Пароли в config.json не хранятся</span>
+        </div>
+
+        <div class="field span-2">
+          <label class="switch">
+            <input type="checkbox" id="VpnDisconnectAfterRun" class="switch__cb" checked>
+            <span class="switch__text">
+              <span class="switch__title">Отключать VPN после работы пайплайна</span>
+              <span class="switch__note">Выключите, если соединение нужно и другим задачам на этой машине</span>
+            </span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <details class="json" id="jsonBlock">
+    <summary class="json__summary">Показать config.json целиком</summary>
+    <pre class="json__pre" id="jsonPre"></pre>
+  </details>
+
+  <p class="footnote" id="saveHint"></p>
+</main>
+
+<div class="toast" id="toast" role="status" hidden>
+  <span id="toastText"></span>
+  <span class="toast__where" id="toastWhere"></span>
+</div>
+
+<script>
+"use strict";
+
+/* ===========================================================================
+   Порядок шагов задан пайплайном: оркестратор выполняет SelectedScripts
+   сверху вниз, поэтому список всегда собирается в этом порядке независимо
+   от того, в каком порядке пользователь щёлкал по схеме.
+   ========================================================================= */
+const STEP_ORDER = [
+  "01_Step1_DownloadFromRevitServer.ps1",
+  "02_Step2_ConvertToNWC.ps1",
+  "03_Step3_UploadToPartnersNWC.ps1",
+  "04_Step4_UploadToPartnersRVT.ps1",
+  "05_Step5_UploadToFileServerNWC.ps1",
+  "06_Step6_SyncFromPartnersNWC.ps1",
+  "07_Step7_SyncFromPartnersRVT.ps1"
+];
+
+const TEXT_FIELDS = [
+  "RevitServerName", "LocalRVTFolder", "LocalNWCFolder", "RevitServerToolPath",
+  "NavisworksToolPath", "FileServerRevitFolder", "FileServerNWCFolder",
+  "PartnersRevitFolder", "PartnersNWCFolder", "SuffixRVTPartners", "SuffixNWCPartners"
+];
+
+/* Поля-пути: при сохранении прямые слеши / заменяются на обратные \, чтобы
+   вставленный не в ту сторону путь всё равно был корректным для Windows. */
+const PATH_FIELDS = [
+  "LocalRVTFolder", "LocalNWCFolder", "RevitServerToolPath", "NavisworksToolPath",
+  "FileServerRevitFolder", "FileServerNWCFolder", "PartnersRevitFolder", "PartnersNWCFolder"
+];
+
+/* Стандартные пути к утилитам Autodesk. Отличаются только годом версии. */
+const TOOL_TEMPLATES = {
+  revit: "C:\\Program Files\\Autodesk\\Revit {YEAR}\\RevitServerToolCommand\\RevitServerTool.exe",
+  navis: "C:\\Program Files\\Autodesk\\Navisworks Manage {YEAR}\\FiletoolsTaskRunner.exe"
+};
+const TOOL_YEARS = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
+
+/* Какие поля нужны какому шагу. Отсюда же строится проверка настроек. */
+const STEP_NEEDS = {
+  1: [["RevitServerName", "адрес RevitServer"], ["RevitServerToolPath", "путь к RevitServerTool.exe"]],
+  2: [["NavisworksToolPath", "путь к FiletoolsTaskRunner.exe"]],
+  3: [["PartnersNWCFolder", "папка NWC у заказчика"]],
+  4: [["PartnersRevitFolder", "папка RVT у заказчика"]],
+  5: [["FileServerNWCFolder", "папка NWC на нашем сервере"]],
+  6: [["PartnersNWCFolder", "папка NWC у заказчика"], ["FileServerNWCFolder", "папка NWC на нашем сервере"]],
+  7: [["PartnersRevitFolder", "папка RVT у заказчика"], ["FileServerRevitFolder", "папка RVT на нашем сервере"]]
+};
+
+const SECTION_STEPS = {
+  secRevitServer: [1],
+  secLocal: [1, 2, 3, 4, 5],
+  secPartners: [3, 4, 6, 7],
+  secFileServer: [5, 6, 7]
+};
+
+/* Исходная конфигурация. Сохранение начинается с неё, чтобы ключи, которых нет
+   в этой форме, не пропадали из config.json. */
+let loadedConfig = {};
+let fileHandle = null;      /* появляется, если браузер умеет писать в файл напрямую */
+let fileName = "config.json";
+let isDirty = false;
+
+const tagLists = {
+  StopUploadModelsToPartners: [],
+  ModelsRVTFromPartners: [],
+  ModelsNWCFromPartners: []
+};
+
+const $ = (id) => document.getElementById(id);
+const canWriteInPlace = typeof window.showSaveFilePicker === "function";
+
+/* Есть ли что проверять: файл открыт или пользователь уже правил форму */
+function hasContent() {
+  return isDirty || Object.keys(loadedConfig).length > 0;
+}
+
+/* --- Поля-списки ---------------------------------------------------------- */
+
+function setupTags(boxId, key, tagClass) {
+  const box = $(boxId);
+  const input = $(box.dataset.input);
+
+  function render() {
+    box.querySelectorAll(".tag").forEach((n) => n.remove());
+    tagLists[key].forEach((value, index) => {
+      const tag = document.createElement("span");
+      tag.className = "tag " + tagClass;
+      tag.append(value);
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "tag__x";
+      remove.textContent = "×";
+      remove.title = "Убрать " + value;
+      remove.setAttribute("aria-label", "Убрать " + value);
+      remove.addEventListener("click", () => {
+        tagLists[key].splice(index, 1);
+        render();
+        markDirty();
+      });
+      tag.append(remove);
+      box.insertBefore(tag, input);
+    });
+  }
+
+  function add(raw) {
+    const parts = String(raw).split(",").map((s) => s.trim()).filter(Boolean);
+    let added = false;
+    parts.forEach((value) => {
+      if (!tagLists[key].includes(value)) { tagLists[key].push(value); added = true; }
+    });
+    if (added) { render(); markDirty(); }
+  }
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === ",") {
+      event.preventDefault();
+      add(input.value);
+      input.value = "";
+    } else if (event.key === "Backspace" && input.value === "" && tagLists[key].length > 0) {
+      tagLists[key].pop();
+      render();
+      markDirty();
+    }
+  });
+  input.addEventListener("blur", () => { add(input.value); input.value = ""; render(); });
+  input.addEventListener("focus", render);
+  box.addEventListener("click", (event) => { if (event.target === box) input.focus(); });
+
+  box.__render = render;
+  render();
+}
+
+function renderTags() {
+  ["stopTags", "rvtFromTags", "nwcFromTags"].forEach((id) => $(id).__render());
+}
+
+/* --- Загрузка в форму ----------------------------------------------------- */
+
+function loadConfigToUI(config) {
+  TEXT_FIELDS.forEach((id) => { $(id).value = config[id] || ""; });
+  $("RevitModelsPath").value = (config.RevitModelsPath || []).join("\n");
+
+  tagLists.StopUploadModelsToPartners = cleanList(config.StopUploadModelsToPartners);
+  tagLists.ModelsRVTFromPartners = cleanList(config.ModelsRVTFromPartners);
+  tagLists.ModelsNWCFromPartners = cleanList(config.ModelsNWCFromPartners);
+  renderTags();
+
+  const selected = Array.isArray(config.SelectedScripts) ? config.SelectedScripts : STEP_ORDER;
+  document.querySelectorAll(".optionCheckbox").forEach((cb) => { cb.checked = selected.includes(cb.value); });
+
+  const vpn = config.Vpn || {};
+  $("VpnEnabled").checked = vpn.Enabled === true;
+  $("VpnType").value = vpn.Type === "Rasdial" ? "Rasdial" : "SoftEther";
+  $("VpnAccountName").value = vpn.AccountName || "";
+  $("VpnCmdPath").value = vpn.VpnCmdPath || "";
+  $("VpnRasEntryName").value = vpn.RasEntryName || "";
+  $("VpnTestHost").value = vpn.TestHost || "";
+  $("VpnTestPort").value = vpn.TestPort === undefined || vpn.TestPort === null ? "" : vpn.TestPort;
+  $("VpnConnectTimeoutSeconds").value = vpn.ConnectTimeoutSeconds || 90;
+  $("VpnPasswordEnvVar").value = vpn.PasswordEnvVar || "";
+  $("VpnDisconnectAfterRun").checked = vpn.DisconnectAfterRun !== false;
+
+  syncToolYear("RevitServerToolPath", "RevitServerToolYear");
+  syncToolYear("NavisworksToolPath", "NavisworksToolYear");
+
+  refresh();
+}
+
+function cleanList(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((s) => String(s).trim()).filter(Boolean);
+}
+
+/* Прямые слеши -> обратные (пути Windows). UNC \\server\share сохраняется. */
+function normalizeSlashes(value) {
+  return (value || "").replace(/\//g, "\\");
+}
+
+/* --- Стандартные пути к утилитам ------------------------------------------ */
+
+function setupToolYears() {
+  ["RevitServerToolYear", "NavisworksToolYear"].forEach((id) => {
+    const sel = $(id);
+    TOOL_YEARS.forEach((y) => {
+      const opt = document.createElement("option");
+      opt.value = String(y);
+      opt.textContent = String(y);
+      sel.appendChild(opt);
+    });
+    sel.value = "2021";
+  });
+
+  document.querySelectorAll(".btn-inset[data-tpl]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tpl = TOOL_TEMPLATES[btn.dataset.tpl];
+      const yearSel = btn.parentElement.querySelector("select");
+      const year = yearSel && yearSel.value ? yearSel.value : "2021";
+      $(btn.dataset.target).value = tpl.replace("{YEAR}", year);
+      markDirty();
+    });
+  });
+}
+
+/* Если в пути уже указан год 20xx — выставляем выпадающий список на него */
+function syncToolYear(inputId, selectId) {
+  const m = ($(inputId).value || "").match(/\b(20\d{2})\b/);
+  if (m && TOOL_YEARS.indexOf(parseInt(m[1], 10)) >= 0) $(selectId).value = m[1];
+}
+
+/* --- Сборка config.json --------------------------------------------------- */
+
+function buildConfig() {
+  const config = Object.assign({}, loadedConfig);
+
+  TEXT_FIELDS.forEach((id) => { config[id] = $(id).value.trim(); });
+  // Автокоррекция направления слешей в путях
+  PATH_FIELDS.forEach((id) => { config[id] = normalizeSlashes(config[id]); });
+
+  config.RevitModelsPath = $("RevitModelsPath").value
+    .split("\n").map((s) => normalizeSlashes(s.trim())).filter(Boolean);
+
+  /* Пустые значения отбрасываются: пустой шаблон превращается в PowerShell
+     в маску "**", которая совпадает с любым именем файла. */
+  config.StopUploadModelsToPartners = tagLists.StopUploadModelsToPartners.slice();
+  config.ModelsRVTFromPartners = tagLists.ModelsRVTFromPartners.slice();
+  config.ModelsNWCFromPartners = tagLists.ModelsNWCFromPartners.slice();
+
+  const checked = new Set(
+    Array.from(document.querySelectorAll(".optionCheckbox")).filter((cb) => cb.checked).map((cb) => cb.value)
+  );
+  config.SelectedScripts = STEP_ORDER.filter((name) => checked.has(name));
+
+  config.Vpn = {
+    Enabled: $("VpnEnabled").checked,
+    Type: $("VpnType").value,
+    VpnCmdPath: normalizeSlashes($("VpnCmdPath").value.trim()),
+    AccountName: $("VpnAccountName").value.trim(),
+    RasEntryName: $("VpnRasEntryName").value.trim(),
+    PasswordEnvVar: $("VpnPasswordEnvVar").value.trim(),
+    ConnectTimeoutSeconds: parseInt($("VpnConnectTimeoutSeconds").value, 10) || 90,
+    TestHost: $("VpnTestHost").value.trim(),
+    TestPort: parseInt($("VpnTestPort").value, 10) || 0,
+    DisconnectAfterRun: $("VpnDisconnectAfterRun").checked
+  };
+
+  return config;
+}
+
+/* --- Проверка настроек ---------------------------------------------------- */
+
+function enabledSteps() {
+  return Array.from(document.querySelectorAll(".optionCheckbox"))
+    .filter((cb) => cb.checked)
+    .map((cb) => parseInt(cb.dataset.step, 10));
+}
+
+function validate(config, steps) {
+  const problems = [];
+
+  /* Одно поле может понадобиться нескольким шагам. Сообщение об этом должно быть
+     одно, со списком шагов, а не пять одинаковых строк подряд. */
+  const missing = new Map();
+  steps.forEach((step) => {
+    (STEP_NEEDS[step] || []).forEach(([field, title]) => {
+      if (config[field]) return;
+      if (!missing.has(field)) missing.set(field, { title: title, steps: [] });
+      missing.get(field).steps.push("0" + step);
+    });
+  });
+  missing.forEach((info, field) => {
+    const who = info.steps.length === 1 ? "шагу " + info.steps[0] : "шагам " + info.steps.join(", ");
+    problems.push({ level: "error", field: field, text: "Не заполнено: " + info.title + " — нужно " + who });
+  });
+
+  if (steps.includes(1) && config.RevitModelsPath.length === 0) {
+    problems.push({ level: "error", field: "RevitModelsPath", text: "Не заполнено: модели для скачивания — нужно шагу 01" });
+  }
+  config.RevitModelsPath.forEach((path) => {
+    if (!/\.rvt$/i.test(path)) {
+      problems.push({ level: "warn", field: "RevitModelsPath", text: "Путь «" + path + "» не заканчивается на .rvt" });
+    }
+  });
+
+  if (steps.includes(6) && config.ModelsNWCFromPartners.length === 0) {
+    problems.push({ level: "warn", field: "nwcFromInput", text: "Шаг 06 включён, но список моделей смежников пуст — шаг ничего не скопирует" });
+  }
+  if (steps.includes(7) && config.ModelsRVTFromPartners.length === 0) {
+    problems.push({ level: "warn", field: "rvtFromInput", text: "Шаг 07 включён, но список моделей смежников пуст — шаг ничего не скопирует" });
+  }
+
+  if (steps.includes(2) && !steps.includes(1)) {
+    problems.push({ level: "warn", field: "", text: "Шаг 02 конвертирует то, что уже лежит в локальной папке: свежие модели без шага 01 не появятся" });
+  }
+  if ((steps.includes(3) || steps.includes(5)) && !steps.includes(2)) {
+    problems.push({ level: "warn", field: "", text: "NWC выгружаются, но шаг 02 выключен — уедут файлы от прошлого запуска" });
+  }
+  if (steps.length === 0) {
+    problems.push({ level: "error", field: "", text: "Не включён ни один шаг — пайплайн ничего не сделает" });
+  }
+
+  if (config.Vpn.Enabled) {
+    if (config.Vpn.Type === "SoftEther") {
+      if (!config.Vpn.AccountName) problems.push({ level: "error", field: "VpnAccountName", text: "VPN: не указано имя подключения в SoftEther" });
+      if (!config.Vpn.VpnCmdPath) problems.push({ level: "error", field: "VpnCmdPath", text: "VPN: не указан путь к vpncmd.exe" });
+    } else if (!config.Vpn.RasEntryName) {
+      problems.push({ level: "error", field: "VpnRasEntryName", text: "VPN: не указано имя подключения Windows" });
+    }
+  } else if ([1, 3, 4, 6, 7].some((s) => steps.includes(s))) {
+    problems.push({ level: "warn", field: "VpnEnabled", text: "Включены шаги, которым нужен доступ к RevitServer или серверу заказчика, а VPN выключен. При запуске по расписанию поднять соединение будет некому" });
+  }
+
+  [["FileServerRevitFolder", 7], ["FileServerNWCFolder", 5], ["PartnersRevitFolder", 4], ["PartnersNWCFolder", 3]]
+    .forEach(([field]) => {
+      const value = config[field];
+      if (value && !/^\\\\|^[A-Za-zА-Яа-я]:\\/.test(value)) {
+        problems.push({ level: "warn", field: field, text: "Путь «" + value + "» не похож на сетевую папку или папку на диске" });
+      }
+    });
+
+  return problems;
+}
+
+function renderCheck(problems) {
+  const box = $("check");
+  const list = $("checkList");
+  const ok = $("checkOk");
+  const errors = problems.filter((p) => p.level === "error").length;
+
+  document.querySelectorAll(".input[data-invalid]").forEach((el) => el.removeAttribute("data-invalid"));
+
+  /* Пока файл не открыт и пользователь ничего не менял, форма пуста по всем полям.
+     Показывать в этот момент список из десятка ошибок бессмысленно: он описывает
+     не проблему настроек, а то, что работа ещё не начата. */
+  if (!hasContent()) {
+    box.dataset.level = "ok";
+    $("checkTitle").textContent = "Проверка настроек";
+    ok.textContent = "Откройте config.json из папки со скриптами — или заполните поля с нуля. Проверка пойдёт по ходу правок.";
+    ok.hidden = false;
+    list.hidden = true;
+    return;
+  }
+
+  problems.filter((p) => p.level === "error" && p.field).forEach((p) => {
+    const el = $(p.field);
+    if (el && el.classList.contains("input")) el.setAttribute("data-invalid", "true");
+  });
+
+  if (problems.length === 0) {
+    box.dataset.level = "ok";
+    $("checkTitle").textContent = "Проверка настроек";
+    ok.textContent = "Всё заполнено: включённые шаги обеспечены настройками.";
+    ok.hidden = false;
+    list.hidden = true;
+    return;
+  }
+
+  box.dataset.level = errors > 0 ? "error" : "warn";
+  $("checkTitle").textContent = errors > 0
+    ? "Нужно исправить: " + errors
+    : "Стоит проверить: " + problems.length;
+  ok.hidden = true;
+  list.hidden = false;
+  list.textContent = "";
+
+  problems.forEach((problem) => {
+    const item = document.createElement("li");
+    item.className = "check__item";
+    const badge = document.createElement("span");
+    badge.className = "check__badge check__badge--" + problem.level;
+    badge.textContent = problem.level === "error" ? "ошибка" : "внимание";
+    item.append(badge);
+
+    if (problem.field && $(problem.field)) {
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = "check__link";
+      link.textContent = problem.text;
+      link.addEventListener("click", () => {
+        const target = $(problem.field);
+        target.scrollIntoView({ block: "center" });
+        target.focus();
+      });
+      item.append(link);
+    } else {
+      const text = document.createElement("span");
+      text.textContent = problem.text;
+      item.append(text);
+    }
+    list.append(item);
+  });
+}
+
+/* --- Пересчёт страницы ---------------------------------------------------- */
+
+function refresh() {
+  const config = buildConfig();
+  const steps = enabledSteps();
+
+  /* Схема: под узлами показываем то, что реально записано в настройках */
+  $("nodeRevitServer").textContent = config.RevitServerName || "адрес не задан";
+  $("nodeLocal").textContent = shorten(config.LocalRVTFolder) && shorten(config.LocalNWCFolder)
+    ? shorten(config.LocalRVTFolder) + " · " + shorten(config.LocalNWCFolder)
+    : "папки рядом со скриптами";
+  $("nodePartners").textContent = shorten(config.PartnersRevitFolder || config.PartnersNWCFolder) || "папки не заданы";
+  $("nodeFileServer").textContent = shorten(config.FileServerRevitFolder || config.FileServerNWCFolder) || "папки не заданы";
+
+  /* Секции гаснут, если ни один включённый шаг их не читает */
+  Object.entries(SECTION_STEPS).forEach(([id, sectionSteps]) => {
+    const used = sectionSteps.some((s) => steps.includes(s));
+    $(id).dataset.idle = String(!used);
+  });
+  $("secVpn").dataset.idle = String(!config.Vpn.Enabled);
+
+  document.querySelectorAll(".steps-tag").forEach((holder) => {
+    holder.textContent = "";
+    holder.dataset.steps.split(",").forEach((value) => {
+      const step = parseInt(value, 10);
+      const cb = document.querySelector('.optionCheckbox[data-step="' + step + '"]');
+      const item = document.createElement("span");
+      item.className = "steps-tag__item";
+      item.textContent = "0" + step;
+      item.dataset.on = String(cb.checked);
+      item.dataset.dir = cb.dataset.dir;
+      item.title = "Шаг 0" + step + (cb.checked ? " включён" : " выключен");
+      holder.append(item);
+    });
+  });
+
+  const models = config.RevitModelsPath.length;
+  $("modelsCount").textContent = models ? "— " + models + " " + plural(models, "модель", "модели", "моделей") : "";
+
+  $("suffixRvtPreview").textContent = config.SuffixRVTPartners
+    ? "Модель.rvt → Модель" + config.SuffixRVTPartners + ".rvt"
+    : "Имя не меняется";
+  $("suffixNwcPreview").textContent = config.SuffixNWCPartners
+    ? "Модель.nwc → Модель" + config.SuffixNWCPartners + ".nwc"
+    : "Имя не меняется";
+
+  $("vpnBody").hidden = !config.Vpn.Enabled;
+  const isSoftEther = config.Vpn.Type === "SoftEther";
+  $("fieldAccountName").hidden = !isSoftEther;
+  $("fieldVpnCmd").hidden = !isSoftEther;
+  $("fieldRasEntry").hidden = isSoftEther;
+
+  renderCheck(validate(config, steps));
+  $("jsonPre").textContent = JSON.stringify(config, null, 2);
+}
+
+function shorten(path) {
+  if (!path) return "";
+  const parts = String(path).split("\\").filter(Boolean);
+  if (parts.length <= 2) return path;
+  return "…\\" + parts.slice(-2).join("\\");
+}
+
+function plural(n, one, few, many) {
+  const mod10 = n % 10, mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+  return many;
+}
+
+/* --- Состояние файла ------------------------------------------------------ */
+
+function markDirty() {
+  isDirty = true;
+  setFileState();
+  refresh();
+}
+
+function setFileState() {
+  const box = $("fileState");
+  const text = $("fileStateText");
+  if (!loadedConfig || Object.keys(loadedConfig).length === 0) {
+    box.dataset.state = isDirty ? "dirty" : "empty";
+    text.textContent = isDirty ? "новый config.json, не сохранён" : "config.json не открыт";
+    return;
+  }
+  box.dataset.state = isDirty ? "dirty" : "loaded";
+  text.textContent = isDirty ? fileName + " — есть несохранённые правки" : fileName + " — сохранён";
+}
+
+function toast(message, where, isError) {
+  const box = $("toast");
+  $("toastText").textContent = message;
+  $("toastWhere").textContent = where || "";
+  box.classList.toggle("toast--error", Boolean(isError));
+  box.hidden = false;
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => { box.hidden = true; }, where ? 9000 : 4500);
+}
+
+/* --- Открыть -------------------------------------------------------------- */
+
+$("btnOpen").addEventListener("click", async () => {
+  if (typeof window.showOpenFilePicker === "function") {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: "Настройки пайплайна", accept: { "application/json": [".json"] } }],
+        excludeAcceptAllOption: false,
+        multiple: false
+      });
+      const file = await handle.getFile();
+      applyFile(await file.text(), file.name);
+      fileHandle = handle;
+      return;
+    } catch (error) {
+      if (error && error.name === "AbortError") return;
+      /* Браузер не дал доступ к файлу напрямую — открываем обычным диалогом */
+    }
+  }
+  $("fileInput").click();
+});
+
+$("fileInput").addEventListener("change", (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => applyFile(e.target.result, file.name);
+  reader.readAsText(file, "utf-8");
+  event.target.value = "";
+});
+
+function applyFile(text, name) {
+  try {
+    const config = JSON.parse(text);
+    loadedConfig = config;
+    fileName = name || "config.json";
+    fileHandle = null;
+    isDirty = false;
+    loadConfigToUI(config);
+    setFileState();
+    toast("Открыт " + fileName);
+  } catch (error) {
+    toast("Не удалось прочитать файл: " + error.message, "Проверьте, что это config.json пайплайна", true);
+  }
+}
+
+/* --- Сохранить ------------------------------------------------------------ */
+
+$("btnSave").addEventListener("click", async () => {
+  const config = buildConfig();
+  const problems = validate(config, enabledSteps());
+  const errors = problems.filter((p) => p.level === "error").length;
+  const json = JSON.stringify(config, null, 2);
+
+  if (fileHandle) {
+    try {
+      const writable = await fileHandle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      afterSave(errors);
+      toast("Сохранено в " + fileName, "Файл перезаписан на месте");
+      return;
+    } catch (error) {
+      toast("Не удалось записать файл: " + error.message, "", true);
+      return;
+    }
+  }
+
+  if (canWriteInPlace) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: "config.json",
+        types: [{ description: "Настройки пайплайна", accept: { "application/json": [".json"] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      fileHandle = handle;
+      fileName = handle.name;
+      afterSave(errors);
+      toast("Сохранено в " + fileName, "Файл записан в выбранную папку");
+      return;
+    } catch (error) {
+      if (error && error.name === "AbortError") return;
+    }
+  }
+
+  download(json);
+  afterSave(errors);
+  toast("Файл выгружен в папку загрузок", "Перенесите config.json в папку со скриптами, заменив старый", false);
+});
+
+function afterSave(errors) {
+  loadedConfig = buildConfig();
+  isDirty = false;
+  setFileState();
+  if (errors > 0) {
+    setTimeout(() => toast("Сохранено, но " + errors + " " + plural(errors, "поле", "поля", "полей") + " не заполнено — пайплайн остановится на этом шаге", "", true), 400);
+  }
+}
+
+function download(json) {
+  const blob = new Blob([json], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "config.json";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* --- Скопировать ---------------------------------------------------------- */
+
+$("btnCopy").addEventListener("click", async () => {
+  const json = JSON.stringify(buildConfig(), null, 2);
+  try {
+    await navigator.clipboard.writeText(json);
+    toast("JSON скопирован", "Вставьте его в config.json рядом со скриптами");
+  } catch (error) {
+    $("jsonBlock").open = true;
+    $("jsonPre").scrollIntoView({ block: "center" });
+    toast("Браузер не дал доступ к буферу обмена", "JSON открыт ниже — скопируйте вручную", true);
+  }
+});
+
+/* --- Подписки ------------------------------------------------------------- */
+
+document.querySelectorAll("input, textarea, select").forEach((el) => {
+  if (el.classList.contains("tags__input") || el.id === "fileInput") return;
+  el.addEventListener("input", markDirty);
+  el.addEventListener("change", markDirty);
+});
+
+document.querySelectorAll(".node[data-goto]").forEach((node) => {
+  node.addEventListener("click", () => {
+    const target = $(node.dataset.goto);
+    target.scrollIntoView({ block: "start" });
+    target.querySelector("input, textarea, select").focus({ preventScroll: true });
+  });
+});
+
+document.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    $("btnSave").click();
+  }
+});
+
+window.addEventListener("beforeunload", (event) => {
+  if (!isDirty) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
+
+/* --- Старт ---------------------------------------------------------------- */
+
+setupTags("stopTags", "StopUploadModelsToPartners", "tag--stop");
+setupTags("rvtFromTags", "ModelsRVTFromPartners", "tag--in");
+setupTags("nwcFromTags", "ModelsNWCFromPartners", "tag--in");
+setupToolYears();
+
+document.querySelectorAll(".optionCheckbox").forEach((cb) => { cb.checked = true; });
+$("VpnCmdPath").value = "C:\\Program Files\\SoftEther VPN Client\\vpncmd.exe";
+$("VpnConnectTimeoutSeconds").value = 90;
+$("VpnTestPort").value = 445;
+
+$("saveHint").textContent = canWriteInPlace
+  ? "Кнопка «Сохранить» пишет прямо в открытый файл. Откройте config.json из папки со скриптами — и правки будут попадать сразу туда."
+  : "Этот браузер не умеет записывать файлы напрямую: «Сохранить» выгрузит config.json в папку загрузок, после чего его нужно перенести к скриптам. Быстрее бывает нажать «Скопировать JSON» и вставить содержимое в config.json.";
+
+isDirty = false;
+setFileState();
+refresh();
+</script>
+</body>
+</html>

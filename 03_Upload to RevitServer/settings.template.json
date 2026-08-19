@@ -1,0 +1,18 @@
+﻿{
+  "Комментарий": "Шаблон настроек RvsUpload. Скопируйте в settings.json и правьте страницей Settings.html. Ключи, которых здесь нет, берут умолчание утилиты; аргументы командной строки перекрывают этот файл.",
+
+  "RevitVersion": 2021,
+
+  "DestFolder": "RSN://RVTSRV-TEST/Проекты/2026",
+  "ListFile": "C:\\pipeline\\models.txt",
+
+  "Overwrite": true,
+  "CreateFolders": true,
+  "CloseWorksets": true,
+
+  "Retries": 2,
+  "TimeoutMinutes": 60,
+  "StartupTimeoutMinutes": 5,
+
+  "LogFile": "C:\\pipeline\\logs\\upload.log"
+}
