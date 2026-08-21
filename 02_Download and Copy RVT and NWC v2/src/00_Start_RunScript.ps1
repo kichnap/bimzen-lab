@@ -1,7 +1,7 @@
 ﻿##########################################################################################################################################
 # ПАНЧИК.РФ                                                                                                                              #
 # Пайплайн DownloadAndCopyRVTNWC                                                                                                         #
-# Версия: 2.3 (13.08.2026)                                                                                                               #
+# Версия: 2.5 (19.08.2026)                                                                                                               #
 # Только для сотрудников BIM-отдела.                                                                                                     #
 # Скрипт выполняет следующие функции:                                                                                                    #
 #   - 01_Step1_DownloadFromRevitServer.ps1  - скачивание моделей с RevitServer с помощью утилиты RevitServerTool.exe                     #
@@ -13,22 +13,31 @@
 #   - 07_Step7_SyncFromPartnersRVT.ps1      - скачивание RVT моделей с файлового сервера партнеров на рабочий сервер                     #
 #   - log.ps1                               - модуль логирования                                                                         #
 #   - common.ps1                            - общие функции: запуск внешних утилит, нормализация фильтров                                #
-#   - vpn.ps1                               - подключение и отключение VPN (SoftEther или встроенный VPN Windows)                        #
+#   - vpn.ps1                               - подключение и отключение туннелей VPN (SoftEther, Windows, WireGuard, OpenVPN)             #
 #                                                                                                                                        #
 # Для автоматизации запуска можно добавить данный скрипт в планировщик задач.                                                            #
 #                                                                                                                                        #
 # Настройки находятся в отдельном файле config.json в одной папке со скриптом.                                                           #
 #                                                                                                                                        #
+# Ключ -VpnOnly поднимает только названные туннели, не трогая настройки:                                                                 #
+#   .\00_Start_RunScript.ps1 -VpnOnly "RevitServer"                                                                                      #
+#                                                                                                                                        #
 # Подробное описание работы смотри в файле Инструкция.pdf                                                                                #
 #                                                                                                                                        #
 ##########################################################################################################################################
+
+param (
+    # Поднять только названные туннели VPN, независимо от их выключателей в config.json.
+    # Нужно для ручной проверки одного канала: боевой config.json при этом не правится.
+    [string[]]$VpnOnly = @()
+)
 
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $configPath = Join-Path $scriptDir "config.json"
 
 # Версия пайплайна задается в одном месте и подставляется в заголовок лога
-$pipelineVersion = "2.3 (13.08.2026)"
+$pipelineVersion = "2.5 (19.08.2026)"
 
 # Папка логов создается рядом со скриптом, а не в текущем рабочем каталоге:
 # при запуске из Планировщика заданий рабочим каталогом является C:\Windows\System32
@@ -99,13 +108,13 @@ $failedSteps = @()
 # вхолостую и завалил лог ошибками доступа к папкам.
 $vpnSettings = Get-VpnSettings -Config $config
 $vpnConnected = $false
-$vpnWasAlreadyConnected = $false
+$vpnResult = $null
 
 if ($vpnSettings.Enabled) {
     Write-LogDivider -LogFile $logPath -Title "Подключение VPN"
+    $vpnSettings = Select-VpnConnections -Settings $vpnSettings -Only $VpnOnly -LogFile $logPath
     $vpnResult = Connect-PipelineVpn -Settings $vpnSettings -LogFile $logPath
     $vpnConnected = $vpnResult.Success
-    $vpnWasAlreadyConnected = $vpnResult.AlreadyConnected
 } else {
     Write-Log -Message ($taskName + ": VPN отключен в настройках, подключение не выполняется") -LogFile $logPath
 }
@@ -145,10 +154,10 @@ try {
 }
 finally {
     # VPN разрывается даже если пайплайн прерван ошибкой, иначе на рабочей станции
-    # остается поднятое соединение с сетью заказчика
+    # остаются поднятые соединения с сетью заказчика
     if ($vpnSettings.Enabled -and $vpnConnected) {
         Write-LogDivider -LogFile $logPath -Title "Отключение VPN"
-        Disconnect-PipelineVpn -Settings $vpnSettings -LogFile $logPath -AlreadyConnected $vpnWasAlreadyConnected
+        Disconnect-PipelineVpn -Settings $vpnSettings -LogFile $logPath -State $vpnResult
     }
 }
 

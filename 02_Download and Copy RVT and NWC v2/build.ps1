@@ -15,7 +15,10 @@
 #>
 
 param(
-    [string]$Version = "2.3",
+    # Пусто — версия берётся из $pipelineVersion в 00_Start_RunScript.ps1.
+    # Держать её здесь вторым списком нельзя: копия рассинхронизируется молча,
+    # и в поставку уедет лицензионный заголовок с чужим номером версии.
+    [string]$Version,
     # Организация, для которой собирается поставка. Пусто — умолчание
     # из branding.psd1 в корне репозитория. Разработчик этим ключом
     # не меняется: см. AGENTS.md, «Организация и разработчик».
@@ -32,6 +35,17 @@ $buildDate = Get-Date -Format "dd.MM.yyyy"
 
 $utf8Bom   = New-Object System.Text.UTF8Encoding($true)
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+
+# Версия пайплайна задана в оркестраторе — оттуда её и берём
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $starter = Get-Content (Join-Path $srcDir "00_Start_RunScript.ps1") -Raw -Encoding UTF8
+    $match = [regex]::Match($starter, '\$pipelineVersion\s*=\s*"(?<version>\d+\.\d+)')
+    if (-not $match.Success) {
+        throw "Не удалось прочитать `$pipelineVersion из 00_Start_RunScript.ps1 — укажите версию ключом -Version."
+    }
+    $Version = $match.Groups["version"].Value
+}
+Write-Host "Версия: $Version"
 
 # Файлы, которые входят в поставку. Старые Инструкция.docx/.pdf и docs\ не копируем.
 $shipScripts = @(

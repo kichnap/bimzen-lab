@@ -366,6 +366,36 @@ body {
 .vpn__body { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line-soft); }
 .vpn__body[hidden] { display: none; }
 
+/* --- Список туннелей VPN -------------------------------------------------- */
+
+.tunnels { display: flex; flex-direction: column; gap: 14px; margin-top: 18px; }
+.tunnel {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--sheet); padding: 14px 16px 16px;
+}
+.tunnel[data-off="true"] { background: var(--planshet); }
+.tunnel[data-off="true"] .grid { opacity: 0.55; }
+.tunnel__head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.tunnel__head .switch { flex: 1; align-items: center; }
+.tunnel__num {
+  font-family: var(--font-mono); font-size: 12px; color: var(--ink-3);
+  border: 1px solid var(--line); border-radius: 2px; padding: 1px 6px; flex: none;
+}
+.tunnel__tools { display: flex; gap: 4px; flex: none; }
+.iconbtn {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--planshet); color: var(--ink);
+  font-size: 13px; line-height: 1; padding: 6px 9px; cursor: pointer;
+}
+.iconbtn:hover { background: #D7DCE0; }
+.iconbtn:disabled { opacity: 0.35; cursor: default; }
+.iconbtn--del:hover { background: var(--stop-soft); color: var(--stop); }
+.tunnels__empty {
+  border: 1px dashed var(--line); border-radius: var(--radius);
+  padding: 16px; font-size: 13px; color: var(--ink-3);
+}
+.tunnels__add { margin-top: 14px; }
+
 /* --- JSON ----------------------------------------------------------------- */
 
 .json { background: var(--sheet); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; }
@@ -412,7 +442,7 @@ body {
 <header class="bar">
   <div class="bar__mark">
     <span class="bar__name">DownloadAndCopyRVTNWC</span>
-    <span class="bar__sub">{{ORG}} · {{UNIT}} · настройки v2.3</span>
+    <span class="bar__sub">{{ORG}} · {{UNIT}} · настройки v2.5</span>
   </div>
 
   <div class="bar__file" id="fileState" data-state="empty">
@@ -706,56 +736,32 @@ body {
     <div class="vpn__body" id="vpnBody" hidden>
       <div class="grid">
         <div class="field">
-          <label class="field__label" for="VpnType">Клиент VPN</label>
-          <select id="VpnType" class="select">
-            <option value="SoftEther">SoftEther VPN Client</option>
-            <option value="Rasdial">Встроенный VPN Windows</option>
-          </select>
-        </div>
-        <div class="field" id="fieldAccountName">
-          <label class="field__label" for="VpnAccountName">Имя подключения в SoftEther</label>
-          <input id="VpnAccountName" class="input" type="text" placeholder="Проект-VPN">
-          <span class="field__help">Как называется подключение в клиенте</span>
-        </div>
-        <div class="field" id="fieldRasEntry" hidden>
-          <label class="field__label" for="VpnRasEntryName">Имя подключения Windows</label>
-          <input id="VpnRasEntryName" class="input" type="text" placeholder="как в «Сетевых подключениях»">
-        </div>
-        <div class="field span-2" id="fieldVpnCmd">
-          <label class="field__label" for="VpnCmdPath">vpncmd.exe</label>
-          <input id="VpnCmdPath" class="input" type="text" placeholder="C:\Program Files\SoftEther VPN Client\vpncmd.exe">
-        </div>
-
-        <div class="field">
-          <label class="field__label" for="VpnTestHost">Проверять доступность узла</label>
-          <input id="VpnTestHost" class="input" type="text" placeholder="PARTNER-NAS">
-          <span class="field__help">Подключение считается успешным, когда узел ответил</span>
-        </div>
-        <div class="field">
-          <label class="field__label" for="VpnTestPort">Порт для проверки</label>
-          <input id="VpnTestPort" class="input input--short" type="number" min="0" max="65535" placeholder="445">
-          <span class="field__help">445 — файловый сервер, 80 — RevitServer, 0 — проверять ping</span>
-        </div>
-        <div class="field">
           <label class="field__label" for="VpnConnectTimeoutSeconds">Ждать подключения, секунд</label>
           <input id="VpnConnectTimeoutSeconds" class="input input--short" type="number" min="10" max="3600" placeholder="90">
+          <span class="field__help">Общее значение для всех туннелей</span>
         </div>
         <div class="field">
-          <label class="field__label" for="VpnPasswordEnvVar">Переменная окружения с паролем управления</label>
-          <input id="VpnPasswordEnvVar" class="input" type="text" placeholder="обычно пусто">
-          <span class="field__help">Здесь указывается имя переменной, а не сам пароль. Пароли в config.json не хранятся</span>
+          <label class="field__label" for="VpnConnectAttempts">Попыток подключения</label>
+          <input id="VpnConnectAttempts" class="input input--short" type="number" min="1" max="5" placeholder="2">
+          <span class="field__help">Клиент может отчитаться об успехе, а канал не заработать. Перед следующей попыткой подключение разрывается</span>
         </div>
-
-        <div class="field span-2">
+        <div class="field">
           <label class="switch">
             <input type="checkbox" id="VpnDisconnectAfterRun" class="switch__cb" checked>
             <span class="switch__text">
               <span class="switch__title">Отключать VPN после работы пайплайна</span>
-              <span class="switch__note">Выключите, если соединение нужно и другим задачам на этой машине</span>
+              <span class="switch__note">Выключите, если соединения нужны и другим задачам на этой машине</span>
             </span>
           </label>
         </div>
       </div>
+
+      <div class="tunnels" id="vpnList"></div>
+
+      <div class="tunnels__add">
+        <button type="button" class="btn-inset" id="btnVpnAdd">+ Добавить туннель</button>
+      </div>
+      <p class="section__note">Туннели поднимаются сверху вниз и разрываются в обратном порядке. Порядок важен: каналы делят маршруты, и поднятый последним может перехватить маршрут по умолчанию.</p>
     </div>
   </section>
 
@@ -828,6 +834,71 @@ const SECTION_STEPS = {
   secFileServer: [5, 6, 7]
 };
 
+const VPN_DEFAULT_VPNCMD = "C:\\Program Files\\SoftEther VPN Client\\vpncmd.exe";
+const VPN_DEFAULT_WIREGUARD = "C:\\Program Files\\WireGuard\\wireguard.exe";
+const VPN_DEFAULT_OPENVPN = "C:\\Program Files\\OpenVPN\\bin\\openvpn.exe";
+
+/* ===========================================================================
+   Клиенты VPN. Добавить нового — значит добавить сюда запись и такую же
+   в таблицу провайдеров в vpn.ps1. Запись описывает строку туннеля:
+   nameKey — где задаётся имя подключения в клиенте, extra — остальные поля
+   этого клиента, admin — нужны ли туннелю права администратора.
+   ========================================================================= */
+const VPN_CLIENTS = {
+  SoftEther: {
+    title: "SoftEther VPN Client",
+    nameKey: "AccountName",
+    nameLabel: "Имя подключения в SoftEther",
+    nameError: "не указано имя подключения в SoftEther",
+    namePlaceholder: "Проект-VPN",
+    nameHelp: "Как подключение называется в клиенте",
+    extra: [
+      { key: "VpnCmdPath", label: "vpncmd.exe", placeholder: VPN_DEFAULT_VPNCMD, wide: true, path: true, required: true,
+        error: "не указан путь к vpncmd.exe" },
+      { key: "PasswordEnvVar", label: "Переменная окружения с паролем управления", placeholder: "обычно пусто",
+        help: "Здесь указывается имя переменной, а не сам пароль. Пароли в config.json не хранятся" }
+    ]
+  },
+  Rasdial: {
+    title: "Встроенный VPN Windows",
+    nameKey: "RasEntryName",
+    nameLabel: "Имя подключения Windows",
+    nameError: "не указано имя подключения Windows",
+    namePlaceholder: "как в «Сетевых подключениях»",
+    nameHelp: "Как подключение называется в «Сетевых подключениях»",
+    extra: []
+  },
+  WireGuard: {
+    title: "WireGuard",
+    nameKey: "Tunnel",
+    nameLabel: "Имя туннеля WireGuard",
+    nameError: "не указано имя туннеля WireGuard",
+    namePlaceholder: "customer-wg",
+    nameHelp: "Как туннель назван в приложении WireGuard: из этого имени складывается имя службы",
+    admin: true,
+    extra: [
+      { key: "WireGuardPath", label: "wireguard.exe", placeholder: VPN_DEFAULT_WIREGUARD, wide: true, path: true,
+        help: "Нужен только для подсказки по установке службы туннеля" }
+    ]
+  },
+  OpenVpn: {
+    title: "OpenVPN",
+    nameKey: "Profile",
+    nameLabel: "Имя профиля OpenVPN",
+    nameError: "не указано имя профиля OpenVPN",
+    namePlaceholder: "office-vpn",
+    nameHelp: "Имя .ovpn без расширения. Профиль ищется в папках OpenVPN пользователя и программы",
+    admin: true,
+    extra: [
+      { key: "ProfilePath", label: "Путь к .ovpn", placeholder: "если профиль лежит не в стандартной папке", wide: true, path: true },
+      { key: "OpenVpnPath", label: "openvpn.exe", placeholder: VPN_DEFAULT_OPENVPN, wide: true, path: true, required: true,
+        error: "не указан путь к openvpn.exe" },
+      { key: "ManagementPort", label: "Порт управления", type: "number", min: 1024, max: 65535, short: true, placeholder: "25340",
+        help: "По нему пайплайн спрашивает состояние и корректно завершает клиент. У каждого туннеля OpenVPN — свой порт" }
+    ]
+  }
+};
+
 /* Исходная конфигурация. Сохранение начинается с неё, чтобы ключи, которых нет
    в этой форме, не пропадали из config.json. */
 let loadedConfig = {};
@@ -840,6 +911,10 @@ const tagLists = {
   ModelsRVTFromPartners: [],
   ModelsNWCFromPartners: []
 };
+
+/* Туннели VPN. Форма правит этот список, а не DOM: строки перерисовываются
+   при добавлении, удалении, смене клиента и переносе туннеля по списку. */
+let vpnConnections = [];
 
 const $ = (id) => document.getElementById(id);
 const canWriteInPlace = typeof window.showSaveFilePicker === "function";
@@ -909,6 +984,290 @@ function renderTags() {
   ["stopTags", "rvtFromTags", "nwcFromTags"].forEach((id) => $(id).__render());
 }
 
+/* --- Туннели VPN ---------------------------------------------------------- */
+
+function newVpnConnection() {
+  return {
+    Name: "", Enabled: true, Required: true, Type: "SoftEther",
+    AccountName: "", RasEntryName: "", VpnCmdPath: VPN_DEFAULT_VPNCMD, PasswordEnvVar: "",
+    Tunnel: "", WireGuardPath: VPN_DEFAULT_WIREGUARD,
+    Profile: "", ProfilePath: "", OpenVpnPath: VPN_DEFAULT_OPENVPN, ManagementPort: 25340,
+    TestHost: "", TestPort: 445
+  };
+}
+
+/* Настройки старого образца описывали один туннель ключами самого блока Vpn.
+   Такой config.json разворачивается в список из одной строки: второго вида
+   настроек ни в форме, ни в пайплайне нет. */
+function readVpnConnections(vpn) {
+  const isList = Array.isArray(vpn.Connections) && vpn.Connections.length > 0;
+  const source = isList ? vpn.Connections : (vpn.Type || vpn.AccountName || vpn.RasEntryName ? [vpn] : []);
+
+  return source.map((item) => {
+    const row = newVpnConnection();
+    row.Type = VPN_CLIENTS[item.Type] ? item.Type : "SoftEther";
+    row.Name = String(item.Name || "").trim();
+    /* У старых настроек ключ Enabled означал «включён VPN вообще», а не этот
+       туннель. Единственный туннель такого файла всегда считается включённым. */
+    row.Enabled = isList ? item.Enabled !== false : true;
+    row.Required = item.Required !== false;
+
+    /* Читаем все известные ключи, а не только ключи выбранного клиента:
+       при смене клиента в форме заполненные поля не должны пропадать. */
+    Object.keys(row).forEach((key) => {
+      if (["Type", "Name", "Enabled", "Required"].indexOf(key) >= 0) return;
+      if (item[key] === undefined || item[key] === null || item[key] === "") return;
+      row[key] = typeof row[key] === "number" ? (parseInt(item[key], 10) || 0) : String(item[key]).trim();
+    });
+
+    const port = parseInt(item.TestPort, 10);
+    row.TestPort = isNaN(port) ? 0 : port;
+    return row;
+  });
+}
+
+function vpnFieldId(index, key) {
+  return "vpnField-" + index + "-" + key;
+}
+
+function vpnTitleText(row, index) {
+  const client = VPN_CLIENTS[row.Type] || VPN_CLIENTS.SoftEther;
+  return row.Name || row[client.nameKey] || "Туннель " + (index + 1);
+}
+
+/* Поле строки туннеля. Правки уходят в объект списка, перерисовки не делаем:
+   иначе фокус улетал бы из поля на каждом введённом символе. */
+function vpnInput(row, index, key, options) {
+  const wrap = document.createElement("div");
+  wrap.className = "field" + (options.wide ? " span-2" : "");
+
+  const label = document.createElement("label");
+  label.className = "field__label";
+  label.htmlFor = vpnFieldId(index, key);
+  label.textContent = options.label;
+  wrap.append(label);
+
+  const input = document.createElement("input");
+  input.id = vpnFieldId(index, key);
+  input.className = "input" + (options.short ? " input--short" : "");
+  input.type = options.type || "text";
+  if (options.placeholder) input.placeholder = options.placeholder;
+  if (options.type === "number") {
+    input.min = String(options.min);
+    input.max = String(options.max);
+  }
+  input.value = row[key] === undefined || row[key] === null ? "" : row[key];
+  input.addEventListener("input", () => {
+    row[key] = options.type === "number" ? (parseInt(input.value, 10) || 0) : input.value;
+    if (options.onInput) options.onInput();
+    markDirty();
+  });
+  wrap.append(input);
+
+  if (options.help) {
+    const help = document.createElement("span");
+    help.className = "field__help";
+    help.textContent = options.help;
+    wrap.append(help);
+  }
+  return wrap;
+}
+
+function vpnSwitch(row, index, key, title, note) {
+  const wrap = document.createElement("div");
+  wrap.className = "field span-2";
+
+  const label = document.createElement("label");
+  label.className = "switch";
+
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.className = "switch__cb";
+  cb.id = vpnFieldId(index, key);
+  cb.checked = row[key] !== false;
+  cb.addEventListener("change", () => { row[key] = cb.checked; markDirty(); });
+
+  const text = document.createElement("span");
+  text.className = "switch__text";
+  const head = document.createElement("span");
+  head.className = "switch__title";
+  head.textContent = title;
+  const hint = document.createElement("span");
+  hint.className = "switch__note";
+  hint.textContent = note;
+  text.append(head, hint);
+
+  label.append(cb, text);
+  wrap.append(label);
+  return wrap;
+}
+
+function vpnToolButton(caption, title, disabled, onClick, extraClass) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "iconbtn" + (extraClass ? " " + extraClass : "");
+  button.textContent = caption;
+  button.title = title;
+  button.setAttribute("aria-label", title);
+  button.disabled = disabled;
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+function moveVpnConnection(index, shift) {
+  const target = index + shift;
+  if (target < 0 || target >= vpnConnections.length) return;
+  const moved = vpnConnections.splice(index, 1)[0];
+  vpnConnections.splice(target, 0, moved);
+  renderVpnList();
+  markDirty();
+}
+
+function removeVpnConnection(index) {
+  const row = vpnConnections[index];
+  const filled = row.Name || row.AccountName || row.RasEntryName || row.TestHost;
+  if (filled && !confirm("Удалить туннель «" + vpnTitleText(row, index) + "»?")) return;
+  vpnConnections.splice(index, 1);
+  renderVpnList();
+  markDirty();
+}
+
+function buildVpnRow(row, index) {
+  const client = VPN_CLIENTS[row.Type] || VPN_CLIENTS.SoftEther;
+
+  const card = document.createElement("div");
+  card.className = "tunnel";
+  card.dataset.off = String(!row.Enabled);
+
+  const head = document.createElement("div");
+  head.className = "tunnel__head";
+
+  const number = document.createElement("span");
+  number.className = "tunnel__num";
+  number.textContent = String(index + 1);
+  head.append(number);
+
+  const toggle = document.createElement("label");
+  toggle.className = "switch";
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.className = "switch__cb";
+  cb.id = vpnFieldId(index, "Enabled");
+  cb.checked = row.Enabled;
+  cb.addEventListener("change", () => { row.Enabled = cb.checked; renderVpnList(); markDirty(); });
+
+  const text = document.createElement("span");
+  text.className = "switch__text";
+  const title = document.createElement("span");
+  title.className = "switch__title";
+  title.textContent = vpnTitleText(row, index);
+  const note = document.createElement("span");
+  note.className = "switch__note";
+  note.textContent = row.Enabled
+    ? client.title + (client.admin ? " · нужны права администратора" : "")
+    : client.title + " — выключен, пайплайн его не поднимает";
+  text.append(title, note);
+  toggle.append(cb, text);
+  head.append(toggle);
+
+  const tools = document.createElement("span");
+  tools.className = "tunnel__tools";
+  tools.append(
+    vpnToolButton("↑", "Поднимать раньше", index === 0, () => moveVpnConnection(index, -1)),
+    vpnToolButton("↓", "Поднимать позже", index === vpnConnections.length - 1, () => moveVpnConnection(index, 1)),
+    vpnToolButton("×", "Удалить туннель", false, () => removeVpnConnection(index), "iconbtn--del")
+  );
+  head.append(tools);
+  card.append(head);
+
+  const grid = document.createElement("div");
+  grid.className = "grid";
+
+  const refreshTitle = () => { title.textContent = vpnTitleText(row, index); };
+
+  grid.append(vpnInput(row, index, "Name", {
+    label: "Название туннеля",
+    placeholder: "RevitServer",
+    help: "Под этим именем туннель виден в логе и в ключе -VpnOnly",
+    onInput: refreshTitle
+  }));
+
+  const typeWrap = document.createElement("div");
+  typeWrap.className = "field";
+  const typeLabel = document.createElement("label");
+  typeLabel.className = "field__label";
+  typeLabel.htmlFor = vpnFieldId(index, "Type");
+  typeLabel.textContent = "Клиент VPN";
+  const typeSelect = document.createElement("select");
+  typeSelect.id = vpnFieldId(index, "Type");
+  typeSelect.className = "select";
+  Object.keys(VPN_CLIENTS).forEach((key) => {
+    const option = document.createElement("option");
+    option.value = key;
+    option.textContent = VPN_CLIENTS[key].title;
+    typeSelect.append(option);
+  });
+  typeSelect.value = row.Type;
+  typeSelect.addEventListener("change", () => { row.Type = typeSelect.value; renderVpnList(); markDirty(); });
+  typeWrap.append(typeLabel, typeSelect);
+  grid.append(typeWrap);
+
+  grid.append(vpnInput(row, index, client.nameKey, {
+    label: client.nameLabel,
+    placeholder: client.namePlaceholder,
+    help: client.nameHelp,
+    onInput: refreshTitle
+  }));
+
+  client.extra.forEach((field) => {
+    grid.append(vpnInput(row, index, field.key, {
+      label: field.label,
+      placeholder: field.placeholder,
+      help: field.help,
+      type: field.type,
+      min: field.min,
+      max: field.max,
+      short: field.short,
+      wide: field.wide
+    }));
+  });
+
+  grid.append(vpnInput(row, index, "TestHost", {
+    label: "Проверять доступность узла",
+    placeholder: "PARTNER-NAS",
+    help: "Туннель считается поднятым, когда узел ответил"
+  }));
+
+  grid.append(vpnInput(row, index, "TestPort", {
+    label: "Порт для проверки",
+    type: "number", min: 0, max: 65535,
+    placeholder: "445",
+    short: true,
+    help: "445 — файловый сервер, 80 — RevitServer, 0 — проверять ping"
+  }));
+
+  grid.append(vpnSwitch(row, index, "Required", "Обязательный туннель",
+    "Выключите, если пайплайну можно продолжать работу, когда этот канал не поднялся"));
+
+  card.append(grid);
+  return card;
+}
+
+function renderVpnList() {
+  const box = $("vpnList");
+  box.textContent = "";
+
+  if (vpnConnections.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "tunnels__empty";
+    empty.textContent = "Туннелей нет. Добавьте первый — пайплайн поднимет его перед запуском шагов.";
+    box.append(empty);
+    return;
+  }
+
+  vpnConnections.forEach((row, index) => box.append(buildVpnRow(row, index)));
+}
+
 /* --- Загрузка в форму ----------------------------------------------------- */
 
 function loadConfigToUI(config) {
@@ -925,15 +1284,11 @@ function loadConfigToUI(config) {
 
   const vpn = config.Vpn || {};
   $("VpnEnabled").checked = vpn.Enabled === true;
-  $("VpnType").value = vpn.Type === "Rasdial" ? "Rasdial" : "SoftEther";
-  $("VpnAccountName").value = vpn.AccountName || "";
-  $("VpnCmdPath").value = vpn.VpnCmdPath || "";
-  $("VpnRasEntryName").value = vpn.RasEntryName || "";
-  $("VpnTestHost").value = vpn.TestHost || "";
-  $("VpnTestPort").value = vpn.TestPort === undefined || vpn.TestPort === null ? "" : vpn.TestPort;
   $("VpnConnectTimeoutSeconds").value = vpn.ConnectTimeoutSeconds || 90;
-  $("VpnPasswordEnvVar").value = vpn.PasswordEnvVar || "";
+  $("VpnConnectAttempts").value = vpn.ConnectAttempts || 2;
   $("VpnDisconnectAfterRun").checked = vpn.DisconnectAfterRun !== false;
+  vpnConnections = readVpnConnections(vpn);
+  renderVpnList();
 
   syncToolYear("RevitServerToolPath", "RevitServerToolYear");
   syncToolYear("NavisworksToolPath", "NavisworksToolYear");
@@ -1007,15 +1362,34 @@ function buildConfig() {
 
   config.Vpn = {
     Enabled: $("VpnEnabled").checked,
-    Type: $("VpnType").value,
-    VpnCmdPath: normalizeSlashes($("VpnCmdPath").value.trim()),
-    AccountName: $("VpnAccountName").value.trim(),
-    RasEntryName: $("VpnRasEntryName").value.trim(),
-    PasswordEnvVar: $("VpnPasswordEnvVar").value.trim(),
     ConnectTimeoutSeconds: parseInt($("VpnConnectTimeoutSeconds").value, 10) || 90,
-    TestHost: $("VpnTestHost").value.trim(),
-    TestPort: parseInt($("VpnTestPort").value, 10) || 0,
-    DisconnectAfterRun: $("VpnDisconnectAfterRun").checked
+    ConnectAttempts: parseInt($("VpnConnectAttempts").value, 10) || 2,
+    DisconnectAfterRun: $("VpnDisconnectAfterRun").checked,
+    /* В файл пишутся только ключи выбранного клиента: конфиг остаётся читаемым
+       и правится руками. Значения остальных клиентов остаются в форме до
+       сохранения, чтобы случайная смена клиента не стирала заполненное. */
+    Connections: vpnConnections.map((row) => {
+      const client = VPN_CLIENTS[row.Type] || VPN_CLIENTS.SoftEther;
+      const item = {
+        Name: row.Name.trim(),
+        Enabled: row.Enabled,
+        Required: row.Required,
+        Type: row.Type
+      };
+      item[client.nameKey] = String(row[client.nameKey] || "").trim();
+      client.extra.forEach((field) => {
+        const value = row[field.key];
+        if (field.type === "number") {
+          item[field.key] = parseInt(value, 10) || 0;
+        } else {
+          const text = String(value || "").trim();
+          item[field.key] = field.path ? normalizeSlashes(text) : text;
+        }
+      });
+      item.TestHost = row.TestHost.trim();
+      item.TestPort = parseInt(row.TestPort, 10) || 0;
+      return item;
+    })
   };
 
   return config;
@@ -1074,12 +1448,58 @@ function validate(config, steps) {
   }
 
   if (config.Vpn.Enabled) {
-    if (config.Vpn.Type === "SoftEther") {
-      if (!config.Vpn.AccountName) problems.push({ level: "error", field: "VpnAccountName", text: "VPN: не указано имя подключения в SoftEther" });
-      if (!config.Vpn.VpnCmdPath) problems.push({ level: "error", field: "VpnCmdPath", text: "VPN: не указан путь к vpncmd.exe" });
-    } else if (!config.Vpn.RasEntryName) {
-      problems.push({ level: "error", field: "VpnRasEntryName", text: "VPN: не указано имя подключения Windows" });
+    const tunnels = config.Vpn.Connections;
+    const working = tunnels.filter((t) => t.Enabled);
+
+    if (working.length === 0) {
+      problems.push({ level: "error", field: "btnVpnAdd", text: "VPN включён, но не отмечен ни один туннель — подключать нечего" });
     }
+
+    const seen = new Set();
+    tunnels.forEach((tunnel, index) => {
+      const client = VPN_CLIENTS[tunnel.Type] || VPN_CLIENTS.SoftEther;
+      const label = tunnel.Name || tunnel[client.nameKey] || "туннель " + (index + 1);
+
+      /* Выключенный туннель не проверяем: он и заведён-то может быть впрок,
+         с пустыми полями, — ругаться на это значит мешать работать. */
+      if (!tunnel.Enabled) return;
+
+      if (!tunnel[client.nameKey]) {
+        problems.push({
+          level: "error", field: vpnFieldId(index, client.nameKey),
+          text: "VPN, «" + label + "»: " + client.nameError
+        });
+      }
+      client.extra.forEach((field) => {
+        if (field.required && !tunnel[field.key]) {
+          problems.push({ level: "error", field: vpnFieldId(index, field.key), text: "VPN, «" + label + "»: " + field.error });
+        }
+      });
+
+      /* Порт управления OpenVPN — это слушающий сокет: два туннеля на одном
+         порту означают, что второй не поднимется, а состояние первого будет
+         читаться как чужое. */
+      if (tunnel.Type === "OpenVpn") {
+        const twin = tunnels.filter((other, otherIndex) =>
+          other.Enabled && other.Type === "OpenVpn" && otherIndex < index && other.ManagementPort === tunnel.ManagementPort);
+        if (twin.length > 0) {
+          problems.push({ level: "error", field: vpnFieldId(index, "ManagementPort"), text: "VPN, «" + label + "»: порт управления " + tunnel.ManagementPort + " уже занят другим туннелем OpenVPN" });
+        }
+      }
+
+      if (!tunnel.TestHost) {
+        problems.push({
+          level: "warn", field: vpnFieldId(index, "TestHost"),
+          text: "VPN, «" + label + "»: не задан узел для проверки — туннель будет считаться поднятым по отчёту клиента, без проверки доступа"
+        });
+      }
+
+      const key = tunnel.Type + "|" + tunnel[client.nameKey];
+      if (tunnel[client.nameKey] && seen.has(key)) {
+        problems.push({ level: "warn", field: vpnFieldId(index, client.nameKey), text: "VPN: подключение «" + tunnel[client.nameKey] + "» указано в списке дважды" });
+      }
+      seen.add(key);
+    });
   } else if ([1, 3, 4, 6, 7].some((s) => steps.includes(s))) {
     problems.push({ level: "warn", field: "VpnEnabled", text: "Включены шаги, которым нужен доступ к RevitServer или серверу заказчика, а VPN выключен. При запуске по расписанию поднять соединение будет некому" });
   }
@@ -1212,10 +1632,6 @@ function refresh() {
     : "Имя не меняется";
 
   $("vpnBody").hidden = !config.Vpn.Enabled;
-  const isSoftEther = config.Vpn.Type === "SoftEther";
-  $("fieldAccountName").hidden = !isSoftEther;
-  $("fieldVpnCmd").hidden = !isSoftEther;
-  $("fieldRasEntry").hidden = isSoftEther;
 
   renderCheck(validate(config, steps));
   $("jsonPre").textContent = JSON.stringify(config, null, 2);
@@ -1398,6 +1814,14 @@ document.querySelectorAll("input, textarea, select").forEach((el) => {
   el.addEventListener("change", markDirty);
 });
 
+$("btnVpnAdd").addEventListener("click", () => {
+  vpnConnections.push(newVpnConnection());
+  renderVpnList();
+  markDirty();
+  const added = $(vpnFieldId(vpnConnections.length - 1, "Name"));
+  if (added) added.focus();
+});
+
 document.querySelectorAll(".node[data-goto]").forEach((node) => {
   node.addEventListener("click", () => {
     const target = $(node.dataset.goto);
@@ -1427,9 +1851,9 @@ setupTags("nwcFromTags", "ModelsNWCFromPartners", "tag--in");
 setupToolYears();
 
 document.querySelectorAll(".optionCheckbox").forEach((cb) => { cb.checked = true; });
-$("VpnCmdPath").value = "C:\\Program Files\\SoftEther VPN Client\\vpncmd.exe";
 $("VpnConnectTimeoutSeconds").value = 90;
-$("VpnTestPort").value = 445;
+$("VpnConnectAttempts").value = 2;
+renderVpnList();
 
 $("saveHint").textContent = canWriteInPlace
   ? "Кнопка «Сохранить» пишет прямо в открытый файл. Откройте config.json из папки со скриптами — и правки будут попадать сразу туда."

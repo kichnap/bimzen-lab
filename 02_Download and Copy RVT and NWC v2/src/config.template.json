@@ -16,15 +16,23 @@
   "SuffixNWCPartners": "",
   "Vpn": {
     "Enabled": false,
-    "Type": "SoftEther",
-    "VpnCmdPath": "C:\\Program Files\\SoftEther VPN Client\\vpncmd.exe",
-    "AccountName": "",
-    "RasEntryName": "",
-    "PasswordEnvVar": "",
     "ConnectTimeoutSeconds": 90,
-    "TestHost": "",
-    "TestPort": 445,
-    "DisconnectAfterRun": true
+    "ConnectAttempts": 2,
+    "DisconnectAfterRun": true,
+    "Connections": [
+      {
+        "Name": "",
+        "Enabled": true,
+        "Required": true,
+        "Type": "SoftEther",
+        "AccountName": "",
+        "RasEntryName": "",
+        "VpnCmdPath": "C:\\Program Files\\SoftEther VPN Client\\vpncmd.exe",
+        "PasswordEnvVar": "",
+        "TestHost": "",
+        "TestPort": 445
+      }
+    ]
   },
   "SelectedScripts": [
     "01_Step1_DownloadFromRevitServer.ps1",
