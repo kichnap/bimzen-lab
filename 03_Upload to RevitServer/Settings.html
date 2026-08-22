@@ -724,6 +724,19 @@ body {
         </span>
       </div>
       <div class="field">
+        <div class="toggle">
+          <input class="toggle__cb" id="fNoAuditOnRetry" type="checkbox">
+          <span class="toggle__text">
+            <label class="toggle__label" for="fNoAuditOnRetry">Не проверять структуру на повторе</label>
+            <span class="toggle__help">
+              По умолчанию на повторную попытку модель открывается с проверкой
+              (audit): медленнее, но чинит мелкие повреждения — то, из-за чего
+              Revit и падает через раз. На первой попытке проверки нет.
+            </span>
+          </span>
+        </div>
+      </div>
+      <div class="field">
         <label class="field__label" for="fTimeoutMinutes">Общий срок, минут</label>
         <input class="input input--short" id="fTimeoutMinutes" type="number" min="1" placeholder="60">
         <span class="field__help">Первая заливка большой модели идёт долго — ставьте с запасом.</span>
@@ -866,6 +879,7 @@ const FIELDS = [
   ["fLogFile",              "LogFile",               "str"],
   ["fKeepTemp",             "KeepTemp",              "bool"],
   ["fSkipPreflight",        "SkipPreflight",         "bool"],
+  ["fNoAuditOnRetry",       "AuditOnRetry",          "boolFalse"],
   ["fMaxModelNameLength",   "MaxModelNameLength",    "int"],
   ["fMaxFolderPathLength",  "MaxFolderPathLength",   "int"]
 ];
@@ -883,7 +897,7 @@ const FLAGS = {
   IgnoreLocks: "--ignore-locks", CloseWorksets: "--close-worksets",
   UnloadLinks: "--unload-links", Audit: "--audit", Compact: "--compact",
   NoEnableWorksharing: "--no-enable-worksharing", KeepTemp: "--keep-temp",
-  SkipPreflight: "--skip-preflight",
+  SkipPreflight: "--skip-preflight", AuditOnRetry: "--no-audit-on-retry",
   MaxModelNameLength: "--max-model-name", MaxFolderPathLength: "--max-folder-path"
 };
 
@@ -1055,9 +1069,9 @@ function renderCmd(s) {
     if (!(key in s)) continue;
     const flag = FLAGS[key];
     if (!flag) continue;
-    // Recurse: false — это ключ --no-recurse, а не «--recurse false».
-    if (key === "Recurse") {
-      if (s[key] === false) parts.push(`<span class="cmd__flag">--no-recurse</span>`);
+    // Ключ-отрицание: false означает сам ключ, а не «--no-... false».
+    if (s[key] === false && flag.startsWith("--no-")) {
+      parts.push(`<span class="cmd__flag">${flag}</span>`);
       continue;
     }
     parts.push(s[key] === true
@@ -1075,7 +1089,7 @@ function cmdPlain() {
   const parts = [];
   for (const [, key] of FIELDS.map((f) => [f[0], f[1]])) {
     if (!(key in s) || !FLAGS[key]) continue;
-    if (key === "Recurse") { if (s[key] === false) parts.push("--no-recurse"); continue; }
+    if (s[key] === false && FLAGS[key].startsWith("--no-")) { parts.push(FLAGS[key]); continue; }
     parts.push(s[key] === true ? FLAGS[key] : `${FLAGS[key]} ${quote(String(s[key]))}`);
   }
   return "RvsUpload.exe " + parts.join(" ");

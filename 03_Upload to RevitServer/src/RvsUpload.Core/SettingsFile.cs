@@ -46,6 +46,12 @@
         public bool? NoEnableWorksharing { get; set; }
         public bool? CloseWorksets { get; set; }
 
+        /// <summary>
+        /// Открывать модели с проверкой структуры на повторных попытках.
+        /// По умолчанию да: повтор и так означает, что с моделью что-то не так.
+        /// </summary>
+        public bool? AuditOnRetry { get; set; }
+
         /// <summary>upgrade | skip | abort</summary>
         public string OnUpgrade { get; set; }
 

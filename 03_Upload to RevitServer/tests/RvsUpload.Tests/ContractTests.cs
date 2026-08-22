@@ -370,6 +370,46 @@ namespace RvsUpload.Tests
     /// Группировка отказов для сводки: причина важнее текста, потому что текст
     /// у каждой модели свой и группировать по нему нечего.
     /// </summary>
+    /// <summary>
+    /// Проверка структуры на повторе. Повторяются те модели, с которыми уже
+    /// что-то не так, — там Audit и нужен. На первой попытке он замедлил бы
+    /// открытие всего пакета ради тех единиц, что упадут.
+    /// </summary>
+    public class AuditOnRetryTests
+    {
+        private static string[] Min(params string[] extra)
+            => new[] { "--source", @"C:.rvt", "--dest", "RSN://s/a.rvt", "--revit-version", "2024" }
+                .Concat(extra).ToArray();
+
+        [Fact]
+        public void OnByDefault()
+            => Assert.True(Options.Parse(Min()).AuditOnRetry);
+
+        [Fact]
+        public void CanBeTurnedOff()
+            => Assert.False(Options.Parse(Min("--no-audit-on-retry")).AuditOnRetry);
+
+        [Fact]
+        public void FirstAttempt_IsNotAudited_UnlessAsked()
+        {
+            Assert.False(Options.Parse(Min()).Audit);
+            Assert.True(Options.Parse(Min("--audit")).Audit);
+        }
+
+        [Fact]
+        public void Config_CanTurnItOff_AndFlagWins()
+        {
+            var cfg = new SettingsFile { AuditOnRetry = false };
+
+            Assert.False(Options.Parse(Min(), cfg).AuditOnRetry);
+
+            // Ключ в командной строке — явное «не надо», файл его не перекрывает.
+            var cfgOn = new SettingsFile { AuditOnRetry = true };
+            Assert.False(Options.Parse(Min("--no-audit-on-retry"), cfgOn).AuditOnRetry);
+        }
+    }
+
+
     public class FailureReasonsTests
     {
         private static UploadResult Fail(string error, string source = @"C:\M.rvt")

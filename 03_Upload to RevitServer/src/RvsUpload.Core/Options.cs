@@ -113,6 +113,16 @@ namespace RvsUpload
         /// Отсюда умолчание в 20 минут, а не в одну-две.
         /// </summary>
         public int IdleTimeoutMinutes = 20;
+        /// <summary>
+        /// Открывать модели с проверкой структуры (Audit) на повторных попытках.
+        ///
+        /// Повтор случается тогда, когда с моделью уже что-то не так, а Audit
+        /// чинит мелкие повреждения — то самое, из-за чего Revit падает при
+        /// открытии через раз. На первой попытке он не нужен: замедляет открытие
+        /// каждой модели пакета ради тех единиц, что упадут.
+        /// </summary>
+        public bool AuditOnRetry = true;
+
         public string LogFile;
         public bool KeepTemp;
         public bool SkipPreflight;
@@ -204,6 +214,7 @@ namespace RvsUpload
                     case "--log": o.LogFile = Next(args, ref i, a); break;
                     case "--keep-temp": o.KeepTemp = true; break;
                     case "--skip-preflight": o.SkipPreflight = true; break;
+                    case "--no-audit-on-retry": o.AuditOnRetry = false; break;
 
                     case "--max-model-name":
                         o.MaxModelNameLength = ParseLimit(Next(args, ref i, a), a);
@@ -303,6 +314,9 @@ namespace RvsUpload
                 o.KeepTemp = c.KeepTemp.Value;
             if (!o.Specified.Contains("--skip-preflight") && c.SkipPreflight.HasValue)
                 o.SkipPreflight = c.SkipPreflight.Value;
+
+            if (!o.Specified.Contains("--no-audit-on-retry") && c.AuditOnRetry.HasValue)
+                o.AuditOnRetry = c.AuditOnRetry.Value;
 
             if (!o.Specified.Contains("--max-model-name") && c.MaxModelNameLength.HasValue)
                 o.MaxModelNameLength = c.MaxModelNameLength.Value;
