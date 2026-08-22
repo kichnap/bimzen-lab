@@ -7,7 +7,7 @@
         %ProgramData%\Autodesk\Revit\Addins\<год>\
         Отсюда аддин загружается штатно. Именно поэтому RvsUpload.exe запускает
         Revit БЕЗ journal-файла: с journal Revit грузит только подписанные
-        «внутренние» аддины из своей папки установки (CODE_REVIEW.md, B-21).
+        «внутренние» аддины из своей папки установки.
 
     -Scope RevitInstall
         C:\Program Files\Autodesk\Revit <год>\AddIns\<Имя>\
@@ -38,7 +38,7 @@ if ($Scope -eq "RevitInstall") {
     # ВАЖНО: в папке установки Revit манифесты лежат В ПОДПАПКАХ, а не в корне.
     # Все 39 манифестов Autodesk устроены так: AddIns\<Имя>\<Имя>.addin рядом
     # с DLL. Манифест, положенный прямо в AddIns\, Revit не подхватывает —
-    # проверено на живом Revit 2021 (CODE_REVIEW.md, B-21).
+    # проверено на живом Revit 2021.
     #
     # Коллизии имён здесь нет: подпапка RvsUpload и файл RvsUpload.addin
     # внутри неё находятся на разных уровнях.

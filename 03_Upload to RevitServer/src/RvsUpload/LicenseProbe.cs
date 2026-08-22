@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -133,7 +133,7 @@ namespace RvsUpload
                 if (proc == null) return null;
 
                 // Читаем оба потока ДО WaitForExit: обратный порядок вешает
-                // процесс на выводе больше буфера канала (AGENTS.md §4.4).
+                // процесс на выводе больше буфера канала.
                 var stdout = proc.StandardOutput.ReadToEnd();
                 proc.StandardError.ReadToEnd();
 

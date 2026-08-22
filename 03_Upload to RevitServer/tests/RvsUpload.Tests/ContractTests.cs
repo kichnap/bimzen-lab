@@ -1348,7 +1348,7 @@ Users of 85853ACD_2021_0F:  (Total of 10 licenses issued;  Total of 1 license in
         public void Manifest_IsApplicationNotCommand()
         {
             // Type="Command" вызывается через ленту, а вызов по AddInId из journal
-            // на живом Revit 2021 молча не срабатывает (CODE_REVIEW.md, B-20).
+            // на живом Revit 2021 молча не срабатывает.
             // Внешнее приложение Revit запускает сам, лента не нужна.
             var manifest = XDocument.Load(FindRepoFile(
                 Path.Combine("src", "RvsUpload.Addin", "RvsUpload.addin")));

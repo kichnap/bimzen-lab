@@ -1,4 +1,4 @@
-namespace RvsUpload
+﻿namespace RvsUpload
 {
     /// <summary>
     /// Контракт между CLI и аддином.
@@ -17,8 +17,6 @@ namespace RvsUpload
     /// Поэтому Revit запускается БЕЗ аргументов, как обычная сессия — тогда
     /// аддин из %ProgramData% загружается штатно. Задание передаётся переменной
     /// окружения, а закрывает Revit сам аддин, закончив работу.
-    ///
-    /// Подробности — CODE_REVIEW.md, B-21.
     /// </summary>
     public static class AddinContract
     {
