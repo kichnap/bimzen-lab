@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
@@ -425,6 +426,154 @@ namespace RvsUpload.Tests
         [Fact]
         public void Group_EmptyList_GivesNoGroups()
             => Assert.Empty(FailureReasons.Group(new UploadResult[0]));
+    }
+
+
+    /// <summary>
+    /// Чтение лога аддина по ходу работы. Пока Revit заливает пакет, его лог —
+    /// единственный источник сведений о том, что происходит, поэтому строки
+    /// должны доходить до консоли сразу и ровно по одному разу.
+    /// </summary>
+    public class AddinLogTailTests
+    {
+        private static string TempFile()
+            => Path.Combine(Path.GetTempPath(), "rvsupload_tail_" + Guid.NewGuid().ToString("N") + ".log");
+
+        /// <summary>Пишет так же, как аддин: файл остаётся открытым, строки сбрасываются сразу.</summary>
+        private static StreamWriter OpenLikeAddin(string path)
+            => new StreamWriter(new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
+               { AutoFlush = true };
+
+        [Fact]
+        public void NewLines_AreForwardedOnce()
+        {
+            var path = TempFile();
+            try
+            {
+                var видел = new List<string>();
+                var tail = new AddinLogTail(path);
+
+                using (var w = OpenLikeAddin(path))
+                {
+                    w.WriteLine("[03:29:45] Аддин стартовал.");
+                    tail.Pump(видел.Add);
+
+                    w.WriteLine(@"[03:30:01] УСПЕХ: C:\A.rvt -> RSN://s/A.rvt");
+                    tail.Pump(видел.Add);
+
+                    // Повторный вызов без новых строк ничего не добавляет.
+                    tail.Pump(видел.Add);
+                }
+
+                Assert.Equal(2, видел.Count);
+                Assert.Contains("Аддин стартовал.", видел[0]);
+                Assert.Contains("УСПЕХ:", видел[1]);
+            }
+            finally { File.Delete(path); }
+        }
+
+        [Fact]
+        public void OwnTimestamp_IsStripped_SoLogHasOnlyOne()
+        {
+            var path = TempFile();
+            try
+            {
+                var видел = new List<string>();
+                using (var w = OpenLikeAddin(path)) w.WriteLine("[03:29:45] Открываю модель ...");
+                new AddinLogTail(path).Pump(видел.Add);
+
+                Assert.Equal("аддин: Открываю модель ...", видел.Single());
+            }
+            finally { File.Delete(path); }
+        }
+
+        [Fact]
+        public void LineWithoutTimestamp_IsKeptWhole()
+        {
+            var path = TempFile();
+            try
+            {
+                var видел = new List<string>();
+                using (var w = OpenLikeAddin(path)) w.WriteLine("продолжение без отметки времени");
+                new AddinLogTail(path).Pump(видел.Add);
+
+                Assert.Equal("аддин: продолжение без отметки времени", видел.Single());
+            }
+            finally { File.Delete(path); }
+        }
+
+        [Fact]
+        public void HalfWrittenLine_WaitsForItsEnd()
+        {
+            var path = TempFile();
+            try
+            {
+                var видел = new List<string>();
+                var tail = new AddinLogTail(path);
+
+                using (var w = OpenLikeAddin(path))
+                {
+                    // Момент чтения попал в середину записи строки.
+                    w.Write("[03:31:00] SaveAs (central) -> ");
+                    tail.Pump(видел.Add);
+                    Assert.Empty(видел);
+
+                    w.WriteLine("RSN://s/A.rvt ...");
+                    tail.Pump(видел.Add);
+                }
+
+                Assert.Equal("аддин: SaveAs (central) -> RSN://s/A.rvt ...", видел.Single());
+            }
+            finally { File.Delete(path); }
+        }
+
+        [Fact]
+        public void MissingFile_IsNotAnError()
+        {
+            var видел = new List<string>();
+            new AddinLogTail(TempFile()).Pump(видел.Add);
+            Assert.Empty(видел);
+        }
+
+        [Fact]
+        public void RecreatedFile_IsReadFromStart()
+        {
+            var path = TempFile();
+            try
+            {
+                var видел = new List<string>();
+                var tail = new AddinLogTail(path);
+
+                using (var w = OpenLikeAddin(path)) w.WriteLine("[03:29:45] Первая сессия, длинная строка.");
+                tail.Pump(видел.Add);
+                Assert.Single(видел);
+
+                // Файл пересоздали — читаем сначала, иначе молчали бы до конца.
+                File.Delete(path);
+                using (var w = OpenLikeAddin(path)) w.WriteLine("[03:40:00] Вторая.");
+                tail.Pump(видел.Add);
+
+                Assert.Equal(2, видел.Count);
+                Assert.Contains("Вторая.", видел[1]);
+            }
+            finally { File.Delete(path); }
+        }
+
+        [Fact]
+        public void CyrillicSurvives()
+        {
+            var path = TempFile();
+            try
+            {
+                var видел = new List<string>();
+                using (var w = OpenLikeAddin(path))
+                    w.WriteLine(@"[03:29:45] УСПЕХ: p:\Модели\ПП_МВЛВ_Театр_АР.rvt -> RSN://сервер/Папка/ПП.rvt");
+                new AddinLogTail(path).Pump(видел.Add);
+
+                Assert.Contains("ПП_МВЛВ_Театр_АР.rvt", видел.Single());
+            }
+            finally { File.Delete(path); }
+        }
     }
 
 

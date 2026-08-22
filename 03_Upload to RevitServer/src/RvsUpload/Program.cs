@@ -178,6 +178,7 @@ namespace RvsUpload
                 attempt++;
 
                 var b = WriteBatch(workDir, "attempt" + attempt, sessionId, pending);
+                Log($"Лог аддина: {b.Batch.LogFile}");
                 if (attempt > 1)
                     Log($"=== Повтор {attempt - 1} из {opt.Retries}: осталось моделей {pending.Count} ===");
 
@@ -185,8 +186,6 @@ namespace RvsUpload
                                  b.BatchFile, b.Batch.ResultFile, b.Batch.LogFile,
                                  TimeSpan.FromMinutes(opt.StartupTimeoutMinutes),
                                  TimeSpan.FromMinutes(opt.IdleTimeoutMinutes));
-
-                DumpAddinLog(b.Batch.LogFile);
 
                 if (run.ForcedAfterFinish)
                     Log("ВНИМАНИЕ: заливка отработала штатно, но Revit не закрылся сам и был " +
@@ -966,14 +965,6 @@ namespace RvsUpload
 
         private static string CombineRsn(string folder, string fileName)
             => RevitServerRestClient.CombineRsn(folder, fileName);
-
-        private static void DumpAddinLog(string path)
-        {
-            if (!File.Exists(path)) return;
-            Log("--- лог аддина ---");
-            foreach (var l in File.ReadAllLines(path)) Log("  " + l);
-            Log("--- конец лога аддина ---");
-        }
 
         private static void TryDelete(string dir)
         {

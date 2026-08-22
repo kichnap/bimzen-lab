@@ -93,6 +93,11 @@ namespace RvsUpload
                 var sw = Stopwatch.StartNew();
                 DateTime? finishedAt = null;
                 var addinSeen = addinLogFile == null;
+
+                // Ход работы аддина показываем сразу, а не одним куском после
+                // закрытия Revit: пакет заливается десятками минут, и всё это
+                // время человек иначе не отличает работу от зависания.
+                var tail = addinLogFile == null ? null : new AddinLogTail(addinLogFile);
                 var startupLimit = startupTimeout ?? TimeSpan.FromMinutes(5);
                 var idleLimit = idleTimeout ?? TimeSpan.FromMinutes(20);
                 var lastWrite = DateTime.MinValue;
@@ -104,6 +109,7 @@ namespace RvsUpload
                     {
                         _log($"ТАЙМАУТ {timeout.TotalMinutes:F0} мин — принудительное завершение Revit (PID {proc.Id}).");
                         TryKill(proc);
+                        tail?.Pump(_log);
                         return new RevitRunResult { ExitCode = -1, TimedOut = true };
                     }
 
@@ -127,9 +133,13 @@ namespace RvsUpload
                                  "не подтверждена загрузка неподписанной надстройки. " +
                                  $"Завершаю принудительно (PID {proc.Id}).");
                             TryKill(proc);
+                            tail?.Pump(_log);
                             return new RevitRunResult { ExitCode = -1, TimedOut = true, StuckOnStartup = true };
                         }
                     }
+
+                    // Новые строки аддина — в консоль и в журнал, по мере появления.
+                    tail?.Pump(_log);
 
                     // Аддин работает, но молчит слишком долго — значит, застрял.
                     // Обычно это модальное окно, которое DialogSuppressor не узнал
@@ -151,6 +161,7 @@ namespace RvsUpload
                                  "Скорее всего, всплыло модальное окно, которое не удалось погасить. " +
                                  $"Завершаю принудительно (PID {proc.Id}).");
                             TryKill(proc);
+                            tail?.Pump(_log);
                             return new RevitRunResult { ExitCode = -1, TimedOut = true, StuckIdle = true };
                         }
                     }
@@ -171,10 +182,12 @@ namespace RvsUpload
                         _log($"Revit не закрылся сам за {GraceAfterFinish.TotalSeconds:F0} с после " +
                              $"завершения работы — закрываю принудительно (PID {proc.Id}).");
                         TryKill(proc);
+                        tail?.Pump(_log);
                         return new RevitRunResult { ExitCode = 0, TimedOut = false, ForcedAfterFinish = true };
                     }
                 }
 
+                tail?.Pump(_log);
                 _log($"Revit завершился с кодом {proc.ExitCode} за {sw.Elapsed:hh\\:mm\\:ss}.");
                 return new RevitRunResult { ExitCode = proc.ExitCode, TimedOut = false };
             }
