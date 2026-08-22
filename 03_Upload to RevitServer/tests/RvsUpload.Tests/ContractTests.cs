@@ -382,6 +382,7 @@ namespace RvsUpload.Tests
         [InlineData("Модель уже существует: RSN://s/M.rvt", "Модель уже есть на сервере (нужен --overwrite)")]
         [InlineData("Модель заблокирована (кто-то работает)", "Модель заблокирована на сервере")]
         [InlineData("Revit не дошёл до аддина (модальное окно)", "Revit не дошёл до надстройки")]
+        [InlineData("InvalidOperationException: Saving failed.", "Revit не смог сохранить модель на сервер")]
         public void Classify_KnownMessages(string error, string expected)
             => Assert.Equal(expected, FailureReasons.Classify(error));
 

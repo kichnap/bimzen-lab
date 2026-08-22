@@ -81,10 +81,24 @@ namespace RvsUpload.Addin
                 // detach она вообще не откроется (Revit ищет свою центральную).
                 openOpts.DetachFromCentralOption = DetachFromCentralOption.DetachAndPreserveWorksets;
 
-                var wsConfig = new WorksetConfiguration(WorksetConfigurationOption.OpenAllWorksets);
+                // Закрываем наборы одним режимом, а не списком идентификаторов.
+                //
+                // Список пришлось бы читать через WorksharingUtils.GetUserWorksetInfo,
+                // а он у центральной модели, скопированной из другого места, падает
+                // с CentralFileCommunicationException: файл помнит СВОЮ прежнюю
+                // центральную и лезет за сведениями туда. На боевом прогоне так
+                // отваливались все 25 моделей подряд, и закрытие наборов молча
+                // не работало ни разу — связанные модели грузились каждый раз.
+                //
+                // CloseAllWorksets закрывает ровно тот же набор (все
+                // пользовательские; системные Revit держит открытыми всегда),
+                // но ничего ни у кого не спрашивает.
+                var wsConfig = new WorksetConfiguration(task.CloseUserWorksets
+                    ? WorksetConfigurationOption.CloseAllWorksets
+                    : WorksetConfigurationOption.OpenAllWorksets);
 
                 if (task.CloseUserWorksets)
-                    CloseUserWorksets(srcPath, wsConfig);
+                    LogWorksets(srcPath);
 
                 openOpts.SetOpenWorksetsConfiguration(wsConfig);
             }
@@ -161,15 +175,18 @@ namespace RvsUpload.Addin
         }
 
         /// <summary>
-        /// Закрывает пользовательские рабочие наборы.
+        /// Пишет в лог, какие пользовательские наборы закрываются. Только для
+        /// сведения: само закрытие делает WorksetConfigurationOption.CloseAllWorksets
+        /// и в этом списке не нуждается.
         ///
-        /// Смысл не в скорости самой по себе, а в том, чтобы НЕ ОТКРЫВАТЬ
+        /// Смысл закрытия не в скорости самой по себе, а в том, чтобы НЕ ОТКРЫВАТЬ
         /// связанные модели, размещённые в этих наборах. На моделях без связей
         /// разницы во времени практически нет.
         ///
-        /// Список берётся через WorksharingUtils.GetUserWorksetInfo — он читает
-        /// заголовок файла и НЕ открывает документ, поэтому конфигурацию можно
-        /// подготовить до OpenDocumentFile.
+        /// Список берётся через WorksharingUtils.GetUserWorksetInfo. У центральной
+        /// модели, скопированной из другого места, он падает: файл помнит свою
+        /// прежнюю центральную и обращается за сведениями туда. Раньше это ломало
+        /// само закрытие наборов, теперь — только эту запись в логе.
         ///
         /// Что именно закрывается: всё, что метод считает пользовательскими
         /// наборами. Сюда попадают и «Общие уровни и сетки» — вопреки
@@ -181,7 +198,7 @@ namespace RvsUpload.Addin
         /// в файле целиком. Проверено на живом Revit 2021 — та же модель с флагом
         /// и без отличается на 0,14 %.
         /// </summary>
-        private void CloseUserWorksets(ModelPath srcPath, WorksetConfiguration config)
+        private void LogWorksets(ModelPath srcPath)
         {
             try
             {
@@ -192,16 +209,18 @@ namespace RvsUpload.Addin
                     return;
                 }
 
-                var ids = userWorksets.Select(w => w.Id).ToList();
-                config.Close(ids);
-                _log.Write($"Закрыто пользовательских рабочих наборов: {ids.Count} " +
+                _log.Write($"Закрываю пользовательские рабочие наборы: {userWorksets.Count} " +
                            $"({string.Join(", ", userWorksets.Take(5).Select(w => w.Name).ToArray())}" +
                            (userWorksets.Count > 5 ? ", ..." : "") + ")");
             }
             catch (Exception ex)
             {
-                // Не критично: открываем со всеми наборами, просто медленнее.
-                _log.Write("Не удалось закрыть рабочие наборы, открываю все: " + BatchRunner.Flatten(ex));
+                // Состав прочитать не вышло — на само закрытие это не влияет.
+                // Чаще всего причина одна: модель скопирована из другого места
+                // и помнит свою прежнюю центральную, а та недоступна.
+                _log.Write("Состав рабочих наборов прочитать не удалось, закрываю все разом. " +
+                           "Обычно это значит, что модель скопирована из другого места " +
+                           "и помнит свою прежнюю центральную. Подробности: " + BatchRunner.Flatten(ex));
             }
         }
 
