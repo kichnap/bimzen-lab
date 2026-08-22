@@ -55,6 +55,15 @@
         public int? StartupTimeoutMinutes { get; set; }
         public int? IdleTimeoutMinutes { get; set; }
 
+        // --- Пределы длины ---
+        //
+        // Сервер сообщает свои пределы сам, и по умолчанию берутся они.
+        // Эти два ключа их перекрывают: 0 — не проверять, положительное
+        // число — свой предел. Нужны потому, что объявленный сервером предел
+        // строже фактического: Revit сохраняет туда же модели с именами длиннее.
+        public int? MaxModelNameLength { get; set; }
+        public int? MaxFolderPathLength { get; set; }
+
         // --- Диагностика ---
         public string LogFile { get; set; }
         public bool? KeepTemp { get; set; }

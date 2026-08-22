@@ -116,8 +116,7 @@ namespace RvsUpload
             if (accepted.Count == 0)
             {
                 Log("Ни одного пригодного задания — Revit не запускается.");
-                ReportRejected(rejected);
-                Log($"Итого: успешно 0, с ошибкой {rejected.Count}.");
+                ReportSummary(new List<UploadResult>(), rejected);
                 return ExitUploadFailed;
             }
 
@@ -137,6 +136,7 @@ namespace RvsUpload
                 if (rejected.Count > 0)
                 {
                     Log($"Итого при проверке: пригодно {accepted.Count}, отбраковано {rejected.Count}.");
+                    ReportFailureGroups(rejected);
                     return ExitUploadFailed;
                 }
 
@@ -253,8 +253,6 @@ namespace RvsUpload
             foreach (var r in succeeded)
                 Log($"OK   {r.SourceFile} -> {r.DestinationPath} ({r.ElapsedSeconds:F1} c)");
 
-            ReportRejected(rejected);
-
             var final = new UploadBatchResult
             {
                 SessionId = sessionId,
@@ -271,7 +269,7 @@ namespace RvsUpload
             if (attempt > 1)
                 Log($"Запусков Revit: {attempt} (повторов: {attempt - 1}).");
 
-            Log($"Итого: успешно {succeeded.Count}, с ошибкой {failed}.");
+            ReportSummary(succeeded, rejected);
 
             if (!opt.KeepTemp && failed == 0)
                 TryDelete(workDir);
@@ -458,10 +456,71 @@ namespace RvsUpload
             return opt.SkipPreflight ? null : Preflight(t, opt, restVersion, clients, limits);
         }
 
-        private static void ReportRejected(List<UploadResult> rejected)
+        /// <summary>
+        /// Итоговая сводка. Печатается последней и отвечает на два вопроса:
+        /// сколько залилось и что чинить.
+        ///
+        /// Отказы сгруппированы по причинам, а не выданы плоским списком:
+        /// в пакете из полусотни моделей два десятка строк «FAIL ...» ничего
+        /// не сообщают, пока их не рассортируешь глазами. Сгруппированные —
+        /// сразу показывают, что двадцать моделей уперлись в одно и то же
+        /// и чинится это одним действием.
+        /// </summary>
+        private static void ReportSummary(List<UploadResult> succeeded, List<UploadResult> failed)
         {
-            foreach (var r in rejected)
-                Log($"FAIL {r.SourceFile} -> {r.DestinationPath}: {r.Error}");
+            Log("");
+            Log("==================== ИТОГ ====================");
+            Log($"Успешно залито: {succeeded.Count}");
+            Log($"С ошибкой:      {failed.Count}");
+
+            ReportFailureGroups(failed);
+
+            Log("==============================================");
+        }
+
+        /// <summary>Отказы по причинам: причина, счёт, поимённый список.</summary>
+        private static void ReportFailureGroups(List<UploadResult> failed)
+        {
+            if (failed == null || failed.Count == 0) return;
+
+            Log("");
+            Log("Не залито, по причинам:");
+
+            foreach (var группа in FailureReasons.Group(failed))
+            {
+                Log("");
+                Log($"  {группа.Reason} — {группа.Failures.Count} {Моделей(группа.Failures.Count)}:");
+
+                foreach (var f in группа.Failures)
+                {
+                    Log($"    {SafeFileName(f.SourceFile)}  ->  {f.DestinationPath}");
+                    Log($"      {Truncate(OneLine(f.Error), 300)}");
+                }
+            }
+        }
+
+        private static string Моделей(int n)
+        {
+            var сотня = n % 100;
+            var единицы = n % 10;
+            if (сотня >= 11 && сотня <= 14) return "моделей";
+            if (единицы == 1) return "модель";
+            if (единицы >= 2 && единицы <= 4) return "модели";
+            return "моделей";
+        }
+
+        /// <summary>Имя файла без падения на пустом или кривом пути.</summary>
+        private static string SafeFileName(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return "(источник не указан)";
+            try { return Path.GetFileName(path); } catch { return path; }
+        }
+
+        /// <summary>Ошибка в одну строку: многострочные тексты ломают вид сводки.</summary>
+        private static string OneLine(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return "(причина не указана)";
+            return text.Replace('\r', ' ').Replace('\n', ' ').Trim();
         }
 
         /// <summary>
@@ -504,6 +563,7 @@ namespace RvsUpload
                 var props = client.GetServerPropertiesParsed();
                 Log($"Сервер {host} ({props.MachineName}): максимум {props.MaximumFolderPathLength} " +
                     $"символов на путь папки, {props.MaximumModelNameLength} на имя модели.");
+                LogLimits(opt, props);
 
                 // Модели передаются НЕ по этому каналу. REST — это порт 80,
                 // а заливка идёт по net.tcp на 808, к службе ModelService<год>.
@@ -542,8 +602,9 @@ namespace RvsUpload
             }
 
             // Лимиты берём с конкретного сервера, а не из констант: он сообщает
-            // их сам, и на разных серверах они могут отличаться.
-            var limitError = CheckServerLimits(relative, limits[host]);
+            // их сам, и на разных серверах они могут отличаться. Настройка,
+            // если задана, перекрывает сервер — см. CheckServerLimits.
+            var limitError = CheckServerLimits(relative, limits[host], opt);
             if (limitError != null) return limitError;
 
             var folder = RevitServerRestClient.ParentOf(relative);
@@ -587,23 +648,91 @@ namespace RvsUpload
         }
 
         /// <summary>
-        /// Проверка пути назначения по лимитам, которые сервер сообщил сам.
+        /// Пишет в лог, какие пределы длины будут применяться и откуда они взяты.
+        ///
+        /// Без этой строки отказ «имя длиннее 40» не с чем сопоставить: непонятно,
+        /// это предел сервера или чья-то настройка, и что править — имя модели
+        /// или конфигурацию запуска.
+        /// </summary>
+        private static void LogLimits(Options opt, ServerProperties props)
+        {
+            LogLimit("имени модели", opt.MaxModelNameLength,
+                     props.MaximumModelNameLength, PathLimits.MaxServerModelName);
+
+            LogLimit("пути папки", opt.MaxFolderPathLength,
+                     props.MaximumFolderPathLength, PathLimits.MaxServerFolderPath);
+        }
+
+        private static void LogLimit(string что, int fromSettings, int fromServer, int fallback)
+        {
+            var предел = PathLimits.EffectiveLimit(fromSettings, fromServer, fallback);
+            var источник = PathLimits.LimitSource(fromSettings, fromServer);
+
+            if (предел <= 0)
+            {
+                Log($"Предел длины {что}: проверка отключена настройкой " +
+                    $"(сервер сообщает {fromServer}).");
+                return;
+            }
+
+            var сноска = fromSettings >= 0 && fromServer > 0 && fromSettings != fromServer
+                ? $", сервер сообщает {fromServer}"
+                : string.Empty;
+
+            Log($"Предел длины {что}: {предел} символов ({источник}{сноска}).");
+        }
+
+        /// <summary>
+        /// Проверка пути назначения по применяемым пределам длины.
+        ///
+        /// По умолчанию пределы берутся с сервера — он сообщает их сам. Настройка
+        /// их перекрывает: объявленный сервером предел строже фактического, и сам
+        /// Revit сохраняет туда же модели с именами длиннее. Отбраковывать такие
+        /// модели значит запрещать то, что работает.
+        ///
         /// Ловится до запуска Revit: иначе SaveAs упадёт уже после открытия
         /// модели, потратив впустую сессию Revit и лицензию.
         /// </summary>
-        private static string CheckServerLimits(string serverRelativePath, ServerProperties props)
+        private static string CheckServerLimits(string serverRelativePath, ServerProperties props, Options opt)
         {
             var modelName = serverRelativePath;
             var sep = serverRelativePath.LastIndexOf('|');
             if (sep >= 0) modelName = serverRelativePath.Substring(sep + 1);
 
-            var nameError = PathLimits.ValidateServerModelName(modelName, props.MaximumModelNameLength);
+            var nameLimit = PathLimits.EffectiveLimit(
+                opt.MaxModelNameLength, props.MaximumModelNameLength, PathLimits.MaxServerModelName);
+
+            var nameError = PathLimits.ValidateServerModelName(
+                modelName, nameLimit, PathLimits.LimitSource(opt.MaxModelNameLength, props.MaximumModelNameLength));
             if (nameError != null)
                 return nameError + " Задайте другое имя: --dest-name <Имя.rvt> " +
-                       "(в пакетном режиме — во второй колонке списка).";
+                       "(в пакетном режиме — во второй колонке списка), " +
+                       "либо поднимите предел ключом --max-model-name.";
 
-            return PathLimits.ValidateServerFolder(
-                RevitServerRestClient.ParentOf(serverRelativePath), props.MaximumFolderPathLength);
+            // Имя прошло только потому, что предел ослаблен: это стоит отметить
+            // поимённо. Если сервер такую модель всё-таки не примет, в логе будет
+            // видно, какие именно имена шли за пределом объявленного.
+            if (props.MaximumModelNameLength > 0 && modelName.Length > props.MaximumModelNameLength)
+                Log($"ВНИМАНИЕ: имя '{modelName}' — {modelName.Length} символов, " +
+                    $"сервер объявляет предел {props.MaximumModelNameLength}. " +
+                    "Пропущено по настройке.");
+
+            var folder = RevitServerRestClient.ParentOf(serverRelativePath);
+            var folderLimit = PathLimits.EffectiveLimit(
+                opt.MaxFolderPathLength, props.MaximumFolderPathLength, PathLimits.MaxServerFolderPath);
+
+            var folderError = PathLimits.ValidateServerFolder(
+                folder, folderLimit, PathLimits.LimitSource(opt.MaxFolderPathLength, props.MaximumFolderPathLength));
+            if (folderError != null)
+                return folderError + " Либо поднимите предел ключом --max-folder-path.";
+
+            var folderДляПоказа = folder == null ? string.Empty : folder.Replace('|', '\\');
+            if (props.MaximumFolderPathLength > 0 &&
+                folderДляПоказа.Length > props.MaximumFolderPathLength)
+                Log($"ВНИМАНИЕ: путь папки '{folderДляПоказа}' — {folderДляПоказа.Length} символов, " +
+                    $"сервер объявляет предел {props.MaximumFolderPathLength}. Пропущено по настройке.");
+
+            return null;
         }
 
         private static List<UploadTask> BuildTasks(Options opt)
@@ -968,6 +1097,16 @@ RvsUpload — загрузка моделей НА Revit Server из коман�
   --log <file>             Файл лога
   --keep-temp              Не удалять временную папку сессии
   --skip-preflight         Пропустить проверки через REST API
+
+  --max-model-name <n>     Свой предел длины имени модели вместо того, что
+                           сообщает сервер. Нужен потому, что объявленный
+                           сервером предел строже фактического: сам Revit
+                           сохраняет на тот же сервер модели с именами длиннее.
+                           0 отключает проверку. Без ключа предел берётся
+                           с сервера
+
+  --max-folder-path <n>    То же для длины пути папки на сервере.
+                           0 отключает проверку
   --dry-run                Сгенерировать journal и выйти, Revit не запускать
 
 КОДЫ ВОЗВРАТА

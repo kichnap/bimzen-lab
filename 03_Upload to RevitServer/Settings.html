@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
@@ -744,7 +744,37 @@ body {
     </div>
   </section>
 
-  <!-- ДИАГНОСТИКА -->
+  <!-- ПРЕДЕЛЫ ДЛИНЫ -->
+  <section class="section" id="secLimits">
+    <div class="section__head">
+      <h2 class="section__title">Пределы длины</h2>
+    </div>
+    <p class="section__note">
+      Сервер сообщает свои пределы сам, и по умолчанию берутся они. Но
+      объявленный предел строже фактического: сам Revit сохраняет на тот же
+      сервер модели с именами длиннее. Пока это так, отбраковка по объявленному
+      пределу запрещает то, что на деле работает, — здесь его можно поднять.
+    </p>
+    <div class="grid">
+      <div class="field">
+        <label class="field__label" for="fMaxModelNameLength">Предел имени модели</label>
+        <input class="input input--short" id="fMaxModelNameLength" type="number" min="0" placeholder="с сервера">
+        <span class="field__help">
+          Пусто — брать с сервера (обычно 40). 0 — не проверять вовсе.
+          Применённое значение и его источник пишутся в журнал.
+        </span>
+      </div>
+      <div class="field">
+        <label class="field__label" for="fMaxFolderPathLength">Предел пути папки</label>
+        <input class="input input--short" id="fMaxFolderPathLength" type="number" min="0" placeholder="с сервера">
+        <span class="field__help">
+          Пусто — брать с сервера (обычно 98). 0 — не проверять вовсе.
+        </span>
+      </div>
+    </div>
+  </section>
+
+<!-- ДИАГНОСТИКА -->
   <section class="section" id="secDiag">
     <div class="section__head">
       <h2 class="section__title">Журнал и разбор</h2>
@@ -835,7 +865,9 @@ const FIELDS = [
   ["fIdleTimeoutMinutes",   "IdleTimeoutMinutes",    "int"],
   ["fLogFile",              "LogFile",               "str"],
   ["fKeepTemp",             "KeepTemp",              "bool"],
-  ["fSkipPreflight",        "SkipPreflight",         "bool"]
+  ["fSkipPreflight",        "SkipPreflight",         "bool"],
+  ["fMaxModelNameLength",   "MaxModelNameLength",    "int"],
+  ["fMaxFolderPathLength",  "MaxFolderPathLength",   "int"]
 ];
 
 /* Ключ → флаг командной строки. Логические ключи, у которых флаг означает
@@ -851,7 +883,8 @@ const FLAGS = {
   IgnoreLocks: "--ignore-locks", CloseWorksets: "--close-worksets",
   UnloadLinks: "--unload-links", Audit: "--audit", Compact: "--compact",
   NoEnableWorksharing: "--no-enable-worksharing", KeepTemp: "--keep-temp",
-  SkipPreflight: "--skip-preflight"
+  SkipPreflight: "--skip-preflight",
+  MaxModelNameLength: "--max-model-name", MaxFolderPathLength: "--max-folder-path"
 };
 
 const $ = (id) => document.getElementById(id);

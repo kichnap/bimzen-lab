@@ -261,6 +261,173 @@ namespace RvsUpload.Tests
             => Assert.Null(PathLimits.ValidateLocalPath(new string('a', PathLimits.MaxLocalPath)));
     }
 
+    /// <summary>
+    /// Предел длины: настройка перекрывает сервер. Причина в том, что
+    /// объявленный сервером предел строже фактического — Revit сохраняет
+    /// на тот же сервер модели с именами длиннее.
+    /// </summary>
+    public class LimitOverrideTests
+    {
+        [Fact]
+        public void Settings_WinOverServer()
+            => Assert.Equal(60, PathLimits.EffectiveLimit(60, 40, PathLimits.MaxServerModelName));
+
+        [Fact]
+        public void Server_UsedWhenSettingNotSet()
+            => Assert.Equal(40, PathLimits.EffectiveLimit(PathLimits.LimitNotSet, 40, PathLimits.MaxServerModelName));
+
+        [Fact]
+        public void Fallback_UsedWhenServerSilent()
+            => Assert.Equal(PathLimits.MaxServerModelName,
+                            PathLimits.EffectiveLimit(PathLimits.LimitNotSet, 0, PathLimits.MaxServerModelName));
+
+        [Fact]
+        public void Zero_FromSettings_DisablesCheck_AndIsNotMistakenForSilence()
+        {
+            // Ноль от человека — это «не проверять», а не «сервер промолчал».
+            Assert.Equal(0, PathLimits.EffectiveLimit(0, 40, PathLimits.MaxServerModelName));
+            Assert.Null(PathLimits.ValidateServerModelName(new string('a', 500), 0));
+            Assert.Null(PathLimits.ValidateServerFolder(new string('a', 500), 0));
+        }
+
+        [Fact]
+        public void LongName_PassesWithRaisedLimit_AndFailsWithServerLimit()
+        {
+            var name = new string('a', 45) + ".rvt";
+
+            Assert.NotNull(PathLimits.ValidateServerModelName(name, 40));
+            Assert.Null(PathLimits.ValidateServerModelName(name, 60));
+        }
+
+        [Fact]
+        public void Error_NamesTheSourceOfLimit()
+        {
+            var error = PathLimits.ValidateServerModelName(new string('a', 50), 40, "задано настройкой");
+            Assert.Contains("задано настройкой", error);
+            Assert.Contains("40", error);
+            Assert.Contains("50", error);
+        }
+
+        [Theory]
+        [InlineData(60, 40, "задано настройкой")]
+        [InlineData(PathLimits.LimitNotSet, 40, "сообщает сервер")]
+        [InlineData(PathLimits.LimitNotSet, 0, "запасное значение, сервер лимит не сообщил")]
+        public void LimitSource_TellsWhereTheNumberCameFrom(int fromSettings, int fromServer, string expected)
+            => Assert.Equal(expected, PathLimits.LimitSource(fromSettings, fromServer));
+
+        [Fact]
+        public void CommandLine_SetsLimits()
+        {
+            var o = Options.Parse(new[]
+            {
+                "--source", @"C:.rvt", "--dest", "RSN://s/a.rvt", "--revit-version", "2024",
+                "--max-model-name", "60", "--max-folder-path", "0",
+            });
+
+            Assert.Equal(60, o.MaxModelNameLength);
+            Assert.Equal(0, o.MaxFolderPathLength);
+        }
+
+        [Fact]
+        public void NotSpecified_MeansTakeFromServer()
+        {
+            var o = Options.Parse(new[]
+            {
+                "--source", @"C:.rvt", "--dest", "RSN://s/a.rvt", "--revit-version", "2024",
+            });
+
+            Assert.Equal(PathLimits.LimitNotSet, o.MaxModelNameLength);
+            Assert.Equal(PathLimits.LimitNotSet, o.MaxFolderPathLength);
+        }
+
+        [Fact]
+        public void NegativeLimit_IsRejected()
+            => Assert.Throws<ArgumentException>(() => Options.Parse(new[]
+            {
+                "--source", @"C:.rvt", "--dest", "RSN://s/a.rvt", "--revit-version", "2024",
+                "--max-model-name", "-5",
+            }));
+
+        [Fact]
+        public void Config_SetsLimits_AndCommandLineWins()
+        {
+            var cfg = new SettingsFile { MaxModelNameLength = 60, MaxFolderPathLength = 120, RevitVersion = 2024 };
+            var args = new[] { "--source", @"C:.rvt", "--dest", "RSN://s/a.rvt" };
+
+            var изФайла = Options.Parse(args, cfg);
+            Assert.Equal(60, изФайла.MaxModelNameLength);
+            Assert.Equal(120, изФайла.MaxFolderPathLength);
+
+            var изАргументов = Options.Parse(
+                args.Concat(new[] { "--max-model-name", "80" }).ToArray(), cfg);
+            Assert.Equal(80, изАргументов.MaxModelNameLength);
+            Assert.Equal(120, изАргументов.MaxFolderPathLength);
+        }
+    }
+
+    /// <summary>
+    /// Группировка отказов для сводки: причина важнее текста, потому что текст
+    /// у каждой модели свой и группировать по нему нечего.
+    /// </summary>
+    public class FailureReasonsTests
+    {
+        private static UploadResult Fail(string error, string source = @"C:\M.rvt")
+            => new UploadResult { SourceFile = source, DestinationPath = "RSN://s/M.rvt", Error = error };
+
+        [Theory]
+        [InlineData("Имя модели — 45 символов, а допустимо не длиннее 40", "Слишком длинное имя модели")]
+        [InlineData("Путь папки на сервере — 120 символов", "Слишком длинный путь папки на сервере")]
+        [InlineData("Локальный путь — 240 символов", "Слишком длинный путь к модели на диске")]
+        [InlineData("Модель уже существует: RSN://s/M.rvt", "Модель уже есть на сервере (нужен --overwrite)")]
+        [InlineData("Модель заблокирована (кто-то работает)", "Модель заблокирована на сервере")]
+        [InlineData("Revit не дошёл до аддина (модальное окно)", "Revit не дошёл до надстройки")]
+        public void Classify_KnownMessages(string error, string expected)
+            => Assert.Equal(expected, FailureReasons.Classify(error));
+
+        [Fact]
+        public void Classify_UnknownMessage_GoesToOther()
+            => Assert.Equal("Прочее", FailureReasons.Classify("Что-то совсем неожиданное от Revit"));
+
+        [Fact]
+        public void Classify_EmptyMessage_IsNotLost()
+            => Assert.Equal("Причина не указана", FailureReasons.Classify(null));
+
+        [Fact]
+        public void Group_BiggestFirst_OtherLast()
+        {
+            var отказы = new[]
+            {
+                Fail("Что-то неожиданное"),
+                Fail("Модель заблокирована (кто-то работает)"),
+                Fail("Имя модели — 45 символов"),
+                Fail("Имя модели — 50 символов"),
+                Fail("Имя модели — 60 символов"),
+            };
+
+            var группы = FailureReasons.Group(отказы);
+
+            Assert.Equal("Слишком длинное имя модели", группы[0].Reason);
+            Assert.Equal(3, группы[0].Failures.Count);
+            Assert.Equal("Модель заблокирована на сервере", группы[1].Reason);
+            Assert.Equal("Прочее", группы[группы.Count - 1].Reason);
+        }
+
+        [Fact]
+        public void Group_KeepsEveryFailure()
+        {
+            var отказы = Enumerable.Range(0, 7)
+                .Select(i => Fail(i % 2 == 0 ? "Имя модели — 45 символов" : "Своя беда " + i))
+                .ToArray();
+
+            Assert.Equal(7, FailureReasons.Group(отказы).Sum(g => g.Failures.Count));
+        }
+
+        [Fact]
+        public void Group_EmptyList_GivesNoGroups()
+            => Assert.Empty(FailureReasons.Group(new UploadResult[0]));
+    }
+
+
     public class ServerPropertiesTests
     {
         // Дословный ответ живого сервера RVTSRV-TEST (Revit Server 2021).
@@ -330,11 +497,16 @@ namespace RvsUpload.Tests
         }
 
         [Fact]
-        public void ZeroLimit_FallsBackToDefault()
+        public void ServerSilent_MeansFallback_NotUnlimited()
         {
             // Сервер не сообщил лимит — берём запасное значение, а не «без ограничений».
-            Assert.NotNull(PathLimits.ValidateServerModelName(new string('a', 41), 0));
-            Assert.NotNull(PathLimits.ValidateServerFolder(new string('a', 99), 0));
+            // Подстановку делает EffectiveLimit: в саму проверку приходит уже готовое
+            // число, а ноль в ней значит «не проверять» и приходит только от настройки.
+            var имя = PathLimits.EffectiveLimit(PathLimits.LimitNotSet, 0, PathLimits.MaxServerModelName);
+            var путь = PathLimits.EffectiveLimit(PathLimits.LimitNotSet, 0, PathLimits.MaxServerFolderPath);
+
+            Assert.NotNull(PathLimits.ValidateServerModelName(new string('a', 41), имя));
+            Assert.NotNull(PathLimits.ValidateServerFolder(new string('a', 99), путь));
         }
     }
 

@@ -118,6 +118,24 @@ namespace RvsUpload
         public bool SkipPreflight;
         public bool DryRun;
 
+        /// <summary>
+        /// Свой предел длины имени модели вместо того, что сообщает сервер.
+        ///
+        /// Нужен потому, что объявленный сервером предел строже фактического:
+        /// сам Revit сохраняет на тот же сервер модели с именами длиннее.
+        /// Пока это так, отбраковка по объявленному пределу запрещает то,
+        /// что на деле работает.
+        ///
+        /// -1 — не задано, брать с сервера. 0 — не проверять вовсе.
+        /// </summary>
+        public int MaxModelNameLength = PathLimits.LimitNotSet;
+
+        /// <summary>
+        /// Свой предел длины пути папки на сервере. Смысл тот же, что
+        /// у MaxModelNameLength: -1 — с сервера, 0 — не проверять.
+        /// </summary>
+        public int MaxFolderPathLength = PathLimits.LimitNotSet;
+
         public static Options Parse(string[] args) => Parse(args, null);
 
         /// <summary>
@@ -186,6 +204,14 @@ namespace RvsUpload
                     case "--log": o.LogFile = Next(args, ref i, a); break;
                     case "--keep-temp": o.KeepTemp = true; break;
                     case "--skip-preflight": o.SkipPreflight = true; break;
+
+                    case "--max-model-name":
+                        o.MaxModelNameLength = ParseLimit(Next(args, ref i, a), a);
+                        break;
+
+                    case "--max-folder-path":
+                        o.MaxFolderPathLength = ParseLimit(Next(args, ref i, a), a);
+                        break;
                     case "--dry-run": o.DryRun = true; break;
 
                     default:
@@ -277,6 +303,30 @@ namespace RvsUpload
                 o.KeepTemp = c.KeepTemp.Value;
             if (!o.Specified.Contains("--skip-preflight") && c.SkipPreflight.HasValue)
                 o.SkipPreflight = c.SkipPreflight.Value;
+
+            if (!o.Specified.Contains("--max-model-name") && c.MaxModelNameLength.HasValue)
+                o.MaxModelNameLength = c.MaxModelNameLength.Value;
+            if (!o.Specified.Contains("--max-folder-path") && c.MaxFolderPathLength.HasValue)
+                o.MaxFolderPathLength = c.MaxFolderPathLength.Value;
+        }
+
+        /// <summary>
+        /// Разбирает значение предела длины. Отрицательное значение не молчим:
+        /// «-1» в командной строке выглядит как «взять с сервера», но человек,
+        /// написавший его руками, скорее ошибся, чем имел это в виду.
+        /// </summary>
+        private static int ParseLimit(string value, string key)
+        {
+            if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var limit))
+                throw new ArgumentException($"{key}: ожидается число, получено '{value}'.");
+
+            if (limit < 0)
+                throw new ArgumentException(
+                    $"{key}: предел не может быть отрицательным. " +
+                    "0 отключает проверку, положительное число задаёт свой предел, " +
+                    "а без этого ключа предел берётся с сервера.");
+
+            return limit;
         }
 
         /// <summary>
